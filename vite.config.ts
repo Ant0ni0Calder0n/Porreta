@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icon-192.svg', 'icon-512.svg'],
+      includeAssets: ['favicon.ico', 'icon-192.svg', 'icon-512.svg', 'firebase-messaging-sw.js'],
       manifest: {
         name: 'Porreta - Apuestas',
         short_name: 'Porreta',
