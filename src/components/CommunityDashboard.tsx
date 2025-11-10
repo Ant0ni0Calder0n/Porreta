@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Community } from '../types';
+import ResultsNotification from './ResultsNotification';
 
 const CommunityDashboard: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
@@ -126,6 +127,9 @@ const CommunityDashboard: React.FC = () => {
 
   return (
     <div>
+      {/* Notificación de resultados */}
+      {communityId && <ResultsNotification communityId={communityId} />}
+      
       <div className="header">
         <div>
           <h1>{community.name}</h1>

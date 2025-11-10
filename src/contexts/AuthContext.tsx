@@ -6,8 +6,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { auth, db, requestNotificationPermission } from '../firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -57,19 +57,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCurrentUser(user);
       if (user) {
         await loadUserData(user);
-        
-        // Solicitar permiso notificaciones y guardar token
-        try {
-          const token = await requestNotificationPermission();
-          if (token) {
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-              fcmTokens: arrayUnion(token)
-            });
-          }
-        } catch (error) {
-          console.error('Error guardando token FCM:', error);
-        }
       } else {
         setUserData(null);
       }
@@ -88,8 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email,
       nick,
       createdAt: new Date(),
-      communities: {},
-      fcmTokens: []
+      communities: {}
     });
 
     await loadUserData(user);

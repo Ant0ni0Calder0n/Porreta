@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Round, MatchResult } from '../types';
+import { Round, MatchResult, Bet } from '../types';
 
 const PublishResults: React.FC = () => {
   const { communityId, roundId } = useParams<{ communityId: string; roundId: string }>();
@@ -58,15 +58,71 @@ const PublishResults: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!round || !roundId) return;
+    if (!round || !roundId || !communityId) return;
 
     setError('');
     setSubmitting(true);
 
     try {
+      // Calcular ganador
+      const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundId));
+      const betsSnapshot = await getDocs(betsQuery);
+      const bets: Bet[] = [];
+      betsSnapshot.forEach((doc) => {
+        bets.push({ id: doc.id, ...doc.data() } as Bet);
+      });
+
+      let winnerId: string | null = null;
+      let winnerNick: string | null = null;
+      let maxPoints = 0;
+      let winners: Bet[] = [];
+
+      // Calcular puntos para cada apuesta
+      bets.forEach((bet) => {
+        let points = 0;
+        bet.predictions.forEach((pred, idx) => {
+          const result = results[idx];
+          
+          if (pred.type === 'exact' && result.type === 'exact') {
+            if (pred.homeGoals === result.homeGoals && pred.awayGoals === result.awayGoals) {
+              points += 1; // Resultado exacto correcto
+            }
+          } else if (pred.type === '1X2' && result.type === '1X2') {
+            if (pred.pick === result.result) {
+              points += 1; // 1X2 correcto
+            }
+          }
+        });
+
+        if (points > maxPoints) {
+          maxPoints = points;
+          winners = [bet];
+        } else if (points === maxPoints && points > 0) {
+          winners.push(bet);
+        }
+      });
+
+      // Determinar ganador o ganadores o bote
+      if (winners.length === 1 && maxPoints > 0) {
+        winnerId = winners[0].userId;
+        winnerNick = winners[0].userNick;
+      } else if (winners.length > 1 && maxPoints > 0) {
+        // Múltiples ganadores - guardar lista de nicks separados por coma
+        winnerId = null;
+        winnerNick = winners.map(w => w.userNick).join(', ');
+      } else {
+        // Nadie acertó
+        winnerId = null;
+        winnerNick = 'BOTE';
+      }
+
+      console.log('🏆 Ganador calculado:', { winnerId, winnerNick, maxPoints, totalBets: bets.length, winners: winners.length });
+
       await updateDoc(doc(db, 'rounds', roundId), {
         results,
-        status: 'results_posted'
+        status: 'results_posted',
+        winnerId,
+        winnerNick
       });
 
       navigate(`/community/${communityId}/round/${roundId}`);

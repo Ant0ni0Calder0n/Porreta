@@ -8,7 +8,6 @@ export interface User {
   nick: string;
   createdAt: Timestamp;
   communities: Record<string, UserRole>;
-  fcmTokens: string[];
 }
 
 export interface Community {
@@ -42,6 +41,8 @@ export interface Round {
   matches: Match[];
   status: RoundStatus;
   results?: MatchResult[];
+  winnerId?: string | null; // ID del ganador o null si es bote
+  winnerNick?: string | null; // Nick del ganador o "BOTE"
 }
 
 export interface MatchResult {
@@ -68,12 +69,4 @@ export interface Bet {
   updatedAt: Timestamp;
   predictions: Prediction[];
   duplicateWarningShown: boolean;
-}
-
-export interface NotificationLog {
-  id: string;
-  targetUserId: string;
-  roundId: string;
-  type: string;
-  sentAt: Timestamp;
 }
