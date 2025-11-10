@@ -173,7 +173,9 @@ const CommunityDashboard: React.FC = () => {
           )}
         </div>
 
-        <div className="card">
+        {/* Solo el admin puede crear rondas */}
+        {isAdmin && (
+          <div className="card">
           <button
             className="button"
             onClick={() => navigate(`/community/${communityId}/create-round`)}
@@ -181,6 +183,7 @@ const CommunityDashboard: React.FC = () => {
             Crear Nueva Ronda
           </button>
         </div>
+        )}
 
         {rounds.length === 0 ? (
           <div className="empty-state">

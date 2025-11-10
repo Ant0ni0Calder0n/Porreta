@@ -61,7 +61,10 @@ const CreateRound: React.FC = () => {
         status: 'open'
       });
 
-      navigate(`/community/${communityId}`);
+      // Navegar de vuelta y recargar (forzar recarga completa)
+      navigate(`/community/${communityId}`, { replace: true });
+      // Forzar recarga de la página para actualizar el listado
+      window.location.reload();
     } catch (err: any) {
       setError('Error creando ronda: ' + (err.message || 'Error desconocido'));
     } finally {
