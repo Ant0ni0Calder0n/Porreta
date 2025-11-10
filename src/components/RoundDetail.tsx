@@ -95,20 +95,33 @@ const RoundDetail: React.FC = () => {
       const prediction = bet.predictions[index];
       
       if (liveResult.type === 'exact') {
-        // Para resultado exacto
+        // Para resultado exacto: solo eliminar si es IMPOSIBLE que se cumpla
         if (liveResult.homeGoals !== undefined && liveResult.awayGoals !== undefined) {
+          // Verificar si coincide exactamente (suma puntos)
           if (prediction.homeGoals === liveResult.homeGoals && 
               prediction.awayGoals === liveResult.awayGoals) {
             points++;
-          } else {
-            hasDefinitiveFailure = true; // Falló en un resultado exacto
+          } 
+          // Solo marcar como eliminada si es IMPOSIBLE cumplirse:
+          // - Los goles actuales del local superan los predichos, O
+          // - Los goles actuales del visitante superan los predichos
+          else if ((prediction.homeGoals !== undefined && liveResult.homeGoals > prediction.homeGoals) || 
+                   (prediction.awayGoals !== undefined && liveResult.awayGoals > prediction.awayGoals)) {
+            hasDefinitiveFailure = true;
           }
+          // Si aún no supera, la apuesta sigue viva (puede alcanzar el resultado predicho)
         }
       } else if (liveResult.type === '1X2') {
-        // Para 1X2
-        if (liveResult.result && prediction.pick === liveResult.result) {
-          points++;
+        // Para 1X2: solo contar puntos si coincide, pero siempre viva hasta que termine
+        if (liveResult.status === 'final' && liveResult.result) {
+          // Solo evaluar cuando el partido ha terminado
+          if (prediction.pick === liveResult.result) {
+            points++;
+          } else {
+            hasDefinitiveFailure = true;
+          }
         }
+        // Si está 'live', no marcar como eliminada (puede cambiar el resultado)
       }
     });
 
