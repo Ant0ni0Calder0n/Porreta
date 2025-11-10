@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -9,6 +9,7 @@ const RoundDetail: React.FC = () => {
   const { communityId, roundId } = useParams<{ communityId: string; roundId: string }>();
   const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [round, setRound] = useState<Round | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ const RoundDetail: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [roundId]);
+  }, [roundId, location.state]);
 
   // Recargar apuestas cuando la ventana recibe foco (al volver de crear apuesta)
   useEffect(() => {
@@ -32,27 +33,45 @@ const RoundDetail: React.FC = () => {
     if (!roundId) return;
 
     console.log('🔄 Cargando ronda:', roundId);
+    console.log('👤 Usuario actual:', currentUser?.uid);
 
     try {
       // Cargar ronda
       const roundDoc = await getDoc(doc(db, 'rounds', roundId));
       if (roundDoc.exists()) {
-        setRound({ id: roundDoc.id, ...roundDoc.data() } as Round);
+        const roundData = { id: roundDoc.id, ...roundDoc.data() } as Round;
+        console.log('📋 Ronda cargada:', {
+          id: roundData.id,
+          name: roundData.name,
+          communityId: roundData.communityId
+        });
+        setRound(roundData);
+      } else {
+        console.error('❌ Ronda no encontrada');
       }
 
       // Cargar apuestas
+      console.log('🔍 Buscando apuestas para roundId:', roundId);
       const q = query(collection(db, 'bets'), where('roundId', '==', roundId));
       const querySnapshot = await getDocs(q);
       console.log('📊 Apuestas encontradas:', querySnapshot.size);
       
       const betsData: Bet[] = [];
       querySnapshot.forEach((doc) => {
-        console.log('✅ Apuesta:', doc.id, doc.data());
-        betsData.push({ id: doc.id, ...doc.data() } as Bet);
+        const betData = doc.data();
+        console.log('✅ Apuesta encontrada:', {
+          id: doc.id,
+          userId: betData.userId,
+          userNick: betData.userNick,
+          roundId: betData.roundId
+        });
+        betsData.push({ id: doc.id, ...betData } as Bet);
       });
+      
+      console.log('📦 Total apuestas cargadas:', betsData.length);
       setBets(betsData);
     } catch (error) {
-      console.error('Error cargando datos:', error);
+      console.error('❌ Error cargando datos:', error);
     } finally {
       setLoading(false);
     }
@@ -80,7 +99,10 @@ const RoundDetail: React.FC = () => {
     <div>
       <div className="header">
         <h1>Detalle Ronda</h1>
-        <button onClick={() => navigate(`/community/${communityId}`)}>Volver</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => loadData()}>🔄 Recargar</button>
+          <button onClick={() => navigate(`/community/${communityId}`)}>Volver</button>
+        </div>
       </div>
 
       <div className="container">

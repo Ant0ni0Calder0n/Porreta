@@ -124,21 +124,32 @@ const CreateBet: React.FC = () => {
         updatedAt: new Date()
       };
 
+      console.log('💾 Guardando apuesta con datos:', {
+        roundId,
+        communityId,
+        userId: currentUser.uid,
+        userNick: userData.nick
+      });
+
       if (existingBet) {
         // Actualizar apuesta existente
         await updateDoc(doc(db, 'bets', existingBet.id), betData);
+        console.log('✅ Apuesta actualizada, ID:', existingBet.id);
       } else {
         // Crear nueva apuesta
-        await addDoc(collection(db, 'bets'), {
+        const newBet = await addDoc(collection(db, 'bets'), {
           ...betData,
           createdAt: new Date()
         });
+        console.log('✅ Apuesta creada con ID:', newBet.id);
       }
 
       console.log('✅ Apuesta guardada para roundId:', roundId);
 
-      // Navegar de vuelta
-      navigate(`/community/${communityId}/round/${roundId}`);
+      // Navegar de vuelta con state para forzar recarga
+      navigate(`/community/${communityId}/round/${roundId}`, { 
+        state: { refresh: true, timestamp: Date.now() }
+      });
     } catch (err: any) {
       setError('Error guardando apuesta: ' + (err.message || 'Error desconocido'));
     } finally {
