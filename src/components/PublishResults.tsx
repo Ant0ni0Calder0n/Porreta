@@ -220,33 +220,38 @@ const PublishResults: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <button onClick={() => navigate(`/community/${communityId}/round/${roundId}`)} style={{ marginBottom: '10px' }}>
+    <div>
+      <div className="header">
+        <h1>Actualizar Resultados</h1>
+        <button onClick={() => navigate(`/community/${communityId}/round/${roundId}`)}>
           ← Volver
         </button>
-        <h1>Actualizar Resultados</h1>
-        <h2 style={{ color: '#666', fontSize: '18px' }}>{round.name}</h2>
-        <p style={{ color: '#999', fontSize: '14px' }}>
-          Actualiza los resultados a medida que se van conociendo. Cuando todos estén marcados como "Terminado", 
-          se publicarán automáticamente los resultados oficiales.
-        </p>
       </div>
 
-      {allMatchesFinal() && (
-        <div style={{
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          textAlign: 'center'
-        }}>
-          ✅ Todos los partidos están TERMINADOS. Al guardar, se publicarán automáticamente los resultados oficiales y se calculará el ganador.
+      <div className="container">
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>{round.name}</h2>
+          <p style={{ color: '#666', fontSize: '14px', marginBottom: 0 }}>
+            Actualiza los resultados a medida que se van conociendo. Cuando todos estén marcados como "Terminado", 
+            se publicarán automáticamente los resultados oficiales.
+          </p>
         </div>
-      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {allMatchesFinal() && (
+          <div style={{
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            textAlign: 'center',
+            fontWeight: 'bold'
+          }}>
+            ✅ Todos los partidos están TERMINADOS. Al guardar, se publicarán automáticamente los resultados oficiales y se calculará el ganador.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {round.matches.map((match, index) => {
           const lr = liveResults[index];
           return (
@@ -375,26 +380,22 @@ const PublishResults: React.FC = () => {
             </div>
           );
         })}
-      </div>
+        </div>
 
-      <div style={{ marginTop: '30px', display: 'flex', gap: '10px' }}>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{
-            flex: 1,
-            padding: '15px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            backgroundColor: allMatchesFinal() ? '#FF5722' : '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: saving ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {saving ? 'Guardando...' : allMatchesFinal() ? '🏆 Guardar y Publicar Resultados Oficiales' : '💾 Guardar Resultados'}
-        </button>
+        <div className="card">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="button"
+            style={{
+              width: '100%',
+              backgroundColor: allMatchesFinal() ? '#FF5722' : '#4CAF50',
+              cursor: saving ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {saving ? 'Guardando...' : allMatchesFinal() ? '🏆 Guardar y Publicar Resultados Oficiales' : '💾 Guardar Resultados'}
+          </button>
+        </div>
       </div>
     </div>
   );

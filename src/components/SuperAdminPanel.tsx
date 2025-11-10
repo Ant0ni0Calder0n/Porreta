@@ -222,21 +222,19 @@ const SuperAdminPanel: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Cargando...</p>
-      </div>
-    );
+    return <div className="loading">Cargando...</div>;
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div>
+      <div className="header">
         <h1>🔧 Panel de Super Administrador</h1>
-        <button onClick={() => navigate('/communities')} style={{ padding: '10px 20px' }}>
-          ← Volver a Comunidades
+        <button onClick={() => navigate('/communities')}>
+          ← Volver
         </button>
       </div>
+
+      <div className="container">
 
       {/* Modal de edición */}
       {editingCommunity && (
@@ -301,8 +299,8 @@ const SuperAdminPanel: React.FC = () => {
       )}
 
       {/* Lista de comunidades */}
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Todas las Comunidades ({communities.length})</h2>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Todas las Comunidades ({communities.length})</h2>
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
@@ -382,8 +380,8 @@ const SuperAdminPanel: React.FC = () => {
 
       {/* Lista de rondas de la comunidad seleccionada */}
       {selectedCommunity && (
-        <div>
-          <h2>Rondas de la Comunidad ({rounds.length})</h2>
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Rondas de la Comunidad ({rounds.length})</h2>
           {rounds.length === 0 ? (
             <p style={{ color: '#999' }}>No hay rondas en esta comunidad</p>
           ) : (
@@ -444,6 +442,7 @@ const SuperAdminPanel: React.FC = () => {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -65,16 +65,17 @@ const Communities: React.FC = () => {
             <button 
               onClick={() => navigate('/super-admin')}
               style={{
-                backgroundColor: '#9C27B0',
+                backgroundColor: '#607D8B',
                 color: 'white',
                 padding: '10px 20px',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontWeight: 'bold'
+                fontSize: '14px',
+                opacity: 0.85
               }}
             >
-              🔧 Panel Super Admin
+              🔧
             </button>
           )}
           <button onClick={handleLogout}>Salir</button>
