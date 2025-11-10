@@ -189,16 +189,9 @@ const RoundDetail: React.FC = () => {
           <div className="card">
             <button
               className="button"
-              style={{ backgroundColor: '#FF9800', marginBottom: '10px' }}
-              onClick={() => navigate(`/community/${communityId}/round/${roundId}/live-results`)}
-            >
-              📊 Actualizar Resultados en Vivo
-            </button>
-            <button
-              className="button"
               onClick={() => navigate(`/community/${communityId}/round/${roundId}/results`)}
             >
-              🏆 Publicar Resultados Oficiales
+              📊 Actualizar Resultados
             </button>
           </div>
         )}

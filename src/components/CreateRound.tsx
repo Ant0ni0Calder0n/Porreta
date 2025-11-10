@@ -159,7 +159,7 @@ const CreateRound: React.FC = () => {
               />
             </div>
 
-            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Partido 3 (1/X/2)</h3>
+            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Partido 3 (1 X 2)</h3>
             <div style={{ marginBottom: '16px' }}>
               <input
                 type="text"
