@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Funciones de ayuda
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isCommunityMember(communityId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.communities[communityId] != null;
+    }
+    
+    function isCommunityAdmin(communityId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.communities[communityId] == 'admin';
+    }
+    
+    // Reglas para usuarios
+    match /users/{userId} {
+      allow read: if isUser(userId);
+      allow create: if isUser(userId);
+      allow update: if isUser(userId);
+      allow delete: if false;
+    }
+    
+    // Reglas para comunidades
+    match /communities/{communityId} {
+      allow read: if isCommunityMember(communityId);
+      allow create: if isAuthenticated();
+      allow update: if isCommunityAdmin(communityId);
+      allow delete: if false;
+    }
+    
+    // Reglas para rondas
+    match /rounds/{roundId} {
+      allow read: if isCommunityMember(resource.data.communityId);
+      allow create: if isAuthenticated() && isCommunityMember(request.resource.data.communityId);
+      allow update: if isCommunityAdmin(resource.data.communityId);
+      allow delete: if false;
+    }
+    
+    // Reglas para apuestas
+    match /bets/{betId} {
+      allow read: if isCommunityMember(resource.data.communityId);
+      allow create: if isAuthenticated() && 
+                      isCommunityMember(request.resource.data.communityId) &&
+                      isUser(request.resource.data.userId);
+      allow update: if isUser(resource.data.userId) && isCommunityMember(resource.data.communityId);
+      allow delete: if false;
+    }
+    
+    // Reglas para log de notificaciones (solo escritura por servidor)
+    match /notifications_log/{logId} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}
