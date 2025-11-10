@@ -23,6 +23,8 @@ export interface Community {
 
 export type MatchType = 'exact' | '1X2';
 
+export type MatchStatus = 'pending' | 'live' | 'final';
+
 export interface Match {
   matchId?: string;
   homeTeam: string;
@@ -31,6 +33,15 @@ export interface Match {
 }
 
 export type RoundStatus = 'open' | 'closed' | 'results_posted';
+
+export interface LiveResult {
+  matchIndex: number;
+  status: MatchStatus; // 'pending' | 'live' | 'final'
+  type: MatchType;
+  homeGoals?: number;
+  awayGoals?: number;
+  result?: '1' | 'X' | '2';
+}
 
 export interface Round {
   id: string;
@@ -42,6 +53,7 @@ export interface Round {
   matches: Match[];
   status: RoundStatus;
   results?: MatchResult[];
+  liveResults?: LiveResult[]; // Resultados en vivo (antes de publicar oficialmente)
   winnerId?: string | null; // ID del ganador o null si es bote
   winnerNick?: string | null; // Nick del ganador o "BOTE"
 }

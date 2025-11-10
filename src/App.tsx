@@ -9,6 +9,7 @@ import CreateRound from './components/CreateRound';
 import RoundDetail from './components/RoundDetail';
 import CreateBet from './components/CreateBet';
 import PublishResults from './components/PublishResults';
+import LiveResults from './components/LiveResults';
 import SuperAdminPanel from './components/SuperAdminPanel';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -73,6 +74,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PublishResults />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/community/:communityId/round/:roundId/live-results"
+            element={
+              <ProtectedRoute>
+                <LiveResults />
               </ProtectedRoute>
             }
           />

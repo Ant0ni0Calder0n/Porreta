@@ -80,6 +80,53 @@ const RoundDetail: React.FC = () => {
   const userBet = bets.find((bet) => bet.userId === currentUser?.uid);
   const canBet = round && new Date(round.deadline.toDate()) > new Date();
 
+  // Función para calcular si una apuesta sigue "viva" basado en liveResults
+  const calculateBetStatus = (bet: Bet): { isAlive: boolean; points: number } => {
+    if (!round?.liveResults || round.liveResults.length === 0) {
+      return { isAlive: true, points: 0 }; // Sin resultados en vivo, todas están vivas
+    }
+
+    let points = 0;
+    let hasDefinitiveFailure = false;
+
+    round.liveResults.forEach((liveResult, index) => {
+      if (liveResult.status === 'pending') return; // Ignorar partidos pendientes
+
+      const prediction = bet.predictions[index];
+      
+      if (liveResult.type === 'exact') {
+        // Para resultado exacto
+        if (liveResult.homeGoals !== undefined && liveResult.awayGoals !== undefined) {
+          if (prediction.homeGoals === liveResult.homeGoals && 
+              prediction.awayGoals === liveResult.awayGoals) {
+            points++;
+          } else {
+            hasDefinitiveFailure = true; // Falló en un resultado exacto
+          }
+        }
+      } else if (liveResult.type === '1X2') {
+        // Para 1X2
+        if (liveResult.result && prediction.pick === liveResult.result) {
+          points++;
+        }
+      }
+    });
+
+    return { isAlive: !hasDefinitiveFailure, points };
+  };
+
+  // Ordenar apuestas: vivas primero, luego eliminadas
+  const sortedBets = [...bets].sort((a, b) => {
+    const statusA = calculateBetStatus(a);
+    const statusB = calculateBetStatus(b);
+    
+    if (statusA.isAlive && !statusB.isAlive) return -1;
+    if (!statusA.isAlive && statusB.isAlive) return 1;
+    
+    // Si ambas tienen el mismo estado, ordenar por puntos
+    return statusB.points - statusA.points;
+  });
+
   const formatPrediction = (pred: any) => {
     if (pred.type === 'exact') {
       return `${pred.homeGoals} - ${pred.awayGoals}`;
@@ -138,14 +185,42 @@ const RoundDetail: React.FC = () => {
           </div>
         )}
 
-        {isAdmin && round.status === 'open' && !canBet && (
+        {isAdmin && round.status === 'closed' && (
           <div className="card">
+            <button
+              className="button"
+              style={{ backgroundColor: '#FF9800', marginBottom: '10px' }}
+              onClick={() => navigate(`/community/${communityId}/round/${roundId}/live-results`)}
+            >
+              📊 Actualizar Resultados en Vivo
+            </button>
             <button
               className="button"
               onClick={() => navigate(`/community/${communityId}/round/${roundId}/results`)}
             >
-              Publicar Resultados
+              🏆 Publicar Resultados Oficiales
             </button>
+          </div>
+        )}
+
+        {round.liveResults && round.liveResults.some(lr => lr.status !== 'pending') && (
+          <div className="card" style={{ backgroundColor: '#fff3e0', borderLeft: '4px solid #FF9800' }}>
+            <h3 style={{ marginTop: 0, color: '#F57C00' }}>🔴 Resultados En Vivo</h3>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+              El admin está actualizando resultados. Las apuestas en <strong style={{ color: '#4CAF50' }}>verde</strong> siguen vivas, 
+              las de <strong style={{ color: '#f44336' }}>rojo</strong> ya no pueden ganar.
+            </p>
+            {round.liveResults.map((lr, idx) => (
+              lr.status !== 'pending' && (
+                <p key={idx} style={{ margin: '8px 0', fontSize: '14px' }}>
+                  <strong>{round.matches[idx].homeTeam} vs {round.matches[idx].awayTeam}:</strong>{' '}
+                  {lr.type === 'exact' 
+                    ? `${lr.homeGoals} - ${lr.awayGoals}` 
+                    : lr.result === '1' ? 'Local' : lr.result === 'X' ? 'Empate' : 'Visitante'}
+                  {lr.status === 'final' ? ' ✅' : ' 🔴'}
+                </p>
+              )
+            ))}
           </div>
         )}
 
@@ -154,28 +229,54 @@ const RoundDetail: React.FC = () => {
           {bets.length === 0 ? (
             <div className="empty-state">No hay apuestas todavía</div>
           ) : (
-            bets.map((bet) => (
-              <div
-                key={bet.id}
-                style={{
-                  padding: '12px',
-                  marginBottom: '12px',
-                  backgroundColor: bet.userId === currentUser?.uid ? '#e3f2fd' : '#f5f5f5',
-                  borderRadius: '4px'
-                }}
-              >
-                <p style={{ margin: '0 0 8px 0', fontWeight: '500' }}>
-                  {bet.userNick}
-                  {bet.userId === currentUser?.uid && ' (Tú)'}
-                </p>
-                {bet.predictions.map((pred, idx) => (
-                  <p key={idx} style={{ margin: '4px 0', fontSize: '14px' }}>
-                    {round.matches[idx].homeTeam} vs {round.matches[idx].awayTeam}:{' '}
-                    <strong>{formatPrediction(pred)}</strong>
-                  </p>
-                ))}
-              </div>
-            ))
+            sortedBets.map((bet) => {
+              const status = calculateBetStatus(bet);
+              const hasLiveResults = round.liveResults && round.liveResults.some(lr => lr.status !== 'pending');
+              
+              return (
+                <div
+                  key={bet.id}
+                  style={{
+                    padding: '12px',
+                    marginBottom: '12px',
+                    backgroundColor: bet.userId === currentUser?.uid 
+                      ? '#e3f2fd' 
+                      : hasLiveResults
+                        ? status.isAlive ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'
+                        : '#f5f5f5',
+                    borderRadius: '4px',
+                    borderLeft: hasLiveResults 
+                      ? `4px solid ${status.isAlive ? '#4CAF50' : '#f44336'}`
+                      : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ margin: '0 0 8px 0', fontWeight: '500' }}>
+                      {bet.userNick}
+                      {bet.userId === currentUser?.uid && ' (Tú)'}
+                    </p>
+                    {hasLiveResults && (
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: status.isAlive ? '#4CAF50' : '#f44336',
+                        color: 'white'
+                      }}>
+                        {status.isAlive ? `🟢 Viva (${status.points} pts)` : '🔴 Eliminada'}
+                      </span>
+                    )}
+                  </div>
+                  {bet.predictions.map((pred, idx) => (
+                    <p key={idx} style={{ margin: '4px 0', fontSize: '14px' }}>
+                      {round.matches[idx].homeTeam} vs {round.matches[idx].awayTeam}:{' '}
+                      <strong>{formatPrediction(pred)}</strong>
+                    </p>
+                  ))}
+                </div>
+              );
+            })
           )}
         </div>
 

@@ -38,8 +38,20 @@ const PublishResults: React.FC = () => {
       if (roundDoc.exists()) {
         const roundData = { id: roundDoc.id, ...roundDoc.data() } as Round;
         setRound(roundData);
+        
+        // Pre-cargar desde resultados oficiales si ya existen
         if (roundData.results) {
           setResults(roundData.results);
+        } 
+        // Si no hay resultados oficiales pero sí liveResults, pre-cargar desde ahí
+        else if (roundData.liveResults && roundData.liveResults.length > 0) {
+          const preloadedResults: MatchResult[] = roundData.liveResults.map(lr => ({
+            type: lr.type,
+            homeGoals: lr.homeGoals,
+            awayGoals: lr.awayGoals,
+            result: lr.result
+          }));
+          setResults(preloadedResults);
         }
       }
     } catch (error) {
@@ -122,7 +134,8 @@ const PublishResults: React.FC = () => {
         results,
         status: 'results_posted',
         winnerId,
-        winnerNick
+        winnerNick,
+        liveResults: null // Limpiar resultados en vivo al publicar oficialmente
       });
 
       navigate(`/community/${communityId}/round/${roundId}`);

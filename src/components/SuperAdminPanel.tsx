@@ -8,6 +8,7 @@ import {
   updateDoc, 
   deleteDoc,
   orderBy,
+  where,
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -107,15 +108,38 @@ const SuperAdminPanel: React.FC = () => {
   const handleDeleteCommunity = async (community: Community) => {
     const confirmDelete = window.confirm(
       `¿Estás seguro de que quieres eliminar la comunidad "${community.name}"?\n\n` +
-      `ADVERTENCIA: Esto eliminará la comunidad pero NO las rondas ni apuestas asociadas. ` +
-      `Deberás eliminar manualmente las rondas primero si lo deseas.`
+      `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
+      `- La comunidad\n` +
+      `- Todas sus rondas\n` +
+      `- Todas las apuestas de esas rondas\n\n` +
+      `Esta acción NO se puede deshacer.`
     );
 
     if (!confirmDelete) return;
 
     try {
+      // 1. Buscar todas las rondas de esta comunidad
+      const roundsQuery = query(collection(db, 'rounds'), where('communityId', '==', community.id));
+      const roundsSnapshot = await getDocs(roundsQuery);
+      
+      // 2. Por cada ronda, eliminar sus apuestas
+      for (const roundDoc of roundsSnapshot.docs) {
+        const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundDoc.id));
+        const betsSnapshot = await getDocs(betsQuery);
+        
+        // Eliminar todas las apuestas
+        for (const betDoc of betsSnapshot.docs) {
+          await deleteDoc(doc(db, 'bets', betDoc.id));
+        }
+        
+        // Eliminar la ronda
+        await deleteDoc(doc(db, 'rounds', roundDoc.id));
+      }
+      
+      // 3. Eliminar la comunidad
       await deleteDoc(doc(db, 'communities', community.id));
-      alert('Comunidad eliminada correctamente');
+      
+      alert(`Comunidad eliminada correctamente.\nRondas eliminadas: ${roundsSnapshot.size}`);
       loadCommunities();
       if (selectedCommunity === community.id) {
         setSelectedCommunity(null);
@@ -123,22 +147,34 @@ const SuperAdminPanel: React.FC = () => {
       }
     } catch (error) {
       console.error('Error al eliminar comunidad:', error);
-      alert('Error al eliminar la comunidad');
+      alert('Error al eliminar la comunidad: ' + error);
     }
   };
 
   const handleDeleteRound = async (round: Round) => {
     const confirmDelete = window.confirm(
       `¿Estás seguro de que quieres eliminar la ronda "${round.name}"?\n\n` +
-      `ADVERTENCIA: Esto NO eliminará las apuestas asociadas. ` +
-      `Las apuestas quedarán huérfanas en la base de datos.`
+      `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
+      `- La ronda\n` +
+      `- Todas las apuestas de esta ronda\n\n` +
+      `Esta acción NO se puede deshacer.`
     );
 
     if (!confirmDelete) return;
 
     try {
+      // 1. Eliminar todas las apuestas de esta ronda
+      const betsQuery = query(collection(db, 'bets'), where('roundId', '==', round.id));
+      const betsSnapshot = await getDocs(betsQuery);
+      
+      for (const betDoc of betsSnapshot.docs) {
+        await deleteDoc(doc(db, 'bets', betDoc.id));
+      }
+      
+      // 2. Eliminar la ronda
       await deleteDoc(doc(db, 'rounds', round.id));
-      alert('Ronda eliminada correctamente');
+      
+      alert(`Ronda eliminada correctamente.\nApuestas eliminadas: ${betsSnapshot.size}`);
       if (selectedCommunity) {
         loadRoundsForCommunity(selectedCommunity);
       }
