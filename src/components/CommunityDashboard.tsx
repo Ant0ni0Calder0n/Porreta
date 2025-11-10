@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Community } from '../types';
 
@@ -11,21 +11,33 @@ const CommunityDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [community, setCommunity] = useState<Community | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [betsCount, setBetsCount] = useState<{[roundId: string]: number}>({});
+  const [betsCount, setBetsCount] = useState<{ [roundId: string]: number }>({});
   const [loading, setLoading] = useState(true);
   const [editingDescription, setEditingDescription] = useState(false);
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
-
+  
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
 
   useEffect(() => {
     loadData();
   }, [communityId]);
 
+  // Recargar datos cuando la ventana recibe foco (al volver de crear ronda)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadData();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [communityId]);
+
   const loadData = async () => {
     if (!communityId) return;
 
+    console.log('🔄 Cargando datos para comunidad:', communityId);
+    
     try {
       // Cargar comunidad
       const communityDoc = await getDoc(doc(db, 'communities', communityId));
@@ -42,14 +54,17 @@ const CommunityDashboard: React.FC = () => {
         orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
+      console.log('📊 Rondas encontradas:', querySnapshot.size);
+      
       const roundsData: Round[] = [];
       querySnapshot.forEach((doc) => {
+        console.log('✅ Ronda:', doc.id, doc.data());
         roundsData.push({ id: doc.id, ...doc.data() } as Round);
       });
       setRounds(roundsData);
 
-      // Cargar conteo de apuestas por ronda
-      const countsMap: {[roundId: string]: number} = {};
+      // Cargar contador de apuestas por cada ronda
+      const countsMap: { [roundId: string]: number } = {};
       for (const round of roundsData) {
         const betsQuery = query(
           collection(db, 'bets'),
@@ -68,17 +83,17 @@ const CommunityDashboard: React.FC = () => {
 
   const handleSaveDescription = async () => {
     if (!communityId || !isAdmin) return;
-
+    
     setSavingDescription(true);
     try {
       await updateDoc(doc(db, 'communities', communityId), {
         description
       });
-
+      
       if (community) {
         setCommunity({ ...community, description });
       }
-
+      
       setEditingDescription(false);
     } catch (error) {
       console.error('Error guardando descripción:', error);
@@ -176,13 +191,13 @@ const CommunityDashboard: React.FC = () => {
         {/* Solo el admin puede crear rondas */}
         {isAdmin && (
           <div className="card">
-          <button
-            className="button"
-            onClick={() => navigate(`/community/${communityId}/create-round`)}
-          >
-            Crear Nueva Ronda
-          </button>
-        </div>
+            <button
+              className="button"
+              onClick={() => navigate(`/community/${communityId}/create-round`)}
+            >
+              Crear Nueva Ronda
+            </button>
+          </div>
         )}
 
         {rounds.length === 0 ? (
@@ -207,7 +222,7 @@ const CommunityDashboard: React.FC = () => {
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       Límite: {new Date(round.deadline.toDate()).toLocaleString()}
                     </p>
-                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '13px', fontWeight: '500' }}>
+                    <p style={{ margin: '4px 0 0 0', color: '#007bff', fontSize: '13px', fontWeight: '500' }}>
                       {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
                     </p>
                   </div>

@@ -52,7 +52,7 @@ const CreateRound: React.FC = () => {
     setLoading(true);
 
     try {
-      await addDoc(collection(db, 'rounds'), {
+      const roundDoc = await addDoc(collection(db, 'rounds'), {
         communityId,
         createdBy: currentUser.uid,
         createdAt: new Date(),
@@ -60,11 +60,12 @@ const CreateRound: React.FC = () => {
         matches,
         status: 'open'
       });
+      
+      console.log('✅ Ronda creada con ID:', roundDoc.id);
+      console.log('📍 CommunityId:', communityId);
 
-      // Navegar de vuelta y recargar (forzar recarga completa)
-      navigate(`/community/${communityId}`, { replace: true });
-      // Forzar recarga de la página para actualizar el listado
-      window.location.reload();
+      // Navegar de vuelta sin replace
+      navigate(`/community/${communityId}`);
     } catch (err: any) {
       setError('Error creando ronda: ' + (err.message || 'Error desconocido'));
     } finally {
