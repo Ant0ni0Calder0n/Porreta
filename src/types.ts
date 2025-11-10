@@ -37,6 +37,7 @@ export interface Round {
   communityId: string;
   createdBy: string;
   createdAt: Timestamp;
+  name: string;
   deadline: Timestamp;
   matches: Match[];
   status: RoundStatus;

@@ -135,9 +135,10 @@ const CreateBet: React.FC = () => {
         });
       }
 
-      // Navegar de vuelta y regargar para actualizar el contador
-      navigate(`/community/${communityId}/round/${roundId}`, { replace: true });
-      window.location.reload();
+      console.log('✅ Apuesta guardada para roundId:', roundId);
+
+      // Navegar de vuelta
+      navigate(`/community/${communityId}/round/${roundId}`);
     } catch (err: any) {
       setError('Error guardando apuesta: ' + (err.message || 'Error desconocido'));
     } finally {

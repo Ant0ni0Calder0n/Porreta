@@ -10,6 +10,7 @@ const CreateRound: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   
+  const [name, setName] = useState('');
   const [deadline, setDeadline] = useState('');
   const [matches, setMatches] = useState<Match[]>([
     { homeTeam: '', awayTeam: '', type: 'exact' },
@@ -27,6 +28,11 @@ const CreateRound: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!name.trim()) {
+      setError('Debes poner un nombre a la ronda');
+      return;
+    }
 
     if (!deadline) {
       setError('Debes establecer una hora límite');
@@ -56,6 +62,7 @@ const CreateRound: React.FC = () => {
         communityId,
         createdBy: currentUser.uid,
         createdAt: new Date(),
+        name: name.trim(),
         deadline: deadlineDate,
         matches,
         status: 'open'
@@ -82,6 +89,33 @@ const CreateRound: React.FC = () => {
 
       <div className="container">
         <form onSubmit={handleSubmit}>
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Información de la Ronda</h2>
+            
+            <div>
+              <label className="label">Nombre de la Ronda</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Ej: Jornada 10, Ronda Navidad, etc."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="label">Hora Límite</label>
+              <input
+                type="datetime-local"
+                className="input"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Partidos</h2>
 
@@ -144,15 +178,6 @@ const CreateRound: React.FC = () => {
                 disabled={loading}
               />
             </div>
-
-            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Hora Límite</h3>
-            <input
-              type="datetime-local"
-              className="input"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              disabled={loading}
-            />
 
             {error && <div className="error">{error}</div>}
 

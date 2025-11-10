@@ -217,7 +217,7 @@ const CommunityDashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: '0 0 8px 0' }}>
-                      Ronda {new Date(round.createdAt.toDate()).toLocaleDateString()}
+                      {round.name}
                     </h3>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       Límite: {new Date(round.deadline.toDate()).toLocaleString()}

@@ -18,8 +18,20 @@ const RoundDetail: React.FC = () => {
     loadData();
   }, [roundId]);
 
+  // Recargar apuestas cuando la ventana recibe foco (al volver de crear apuesta)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadData();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [roundId]);
+
   const loadData = async () => {
     if (!roundId) return;
+
+    console.log('🔄 Cargando ronda:', roundId);
 
     try {
       // Cargar ronda
@@ -31,8 +43,11 @@ const RoundDetail: React.FC = () => {
       // Cargar apuestas
       const q = query(collection(db, 'bets'), where('roundId', '==', roundId));
       const querySnapshot = await getDocs(q);
+      console.log('📊 Apuestas encontradas:', querySnapshot.size);
+      
       const betsData: Bet[] = [];
       querySnapshot.forEach((doc) => {
+        console.log('✅ Apuesta:', doc.id, doc.data());
         betsData.push({ id: doc.id, ...doc.data() } as Bet);
       });
       setBets(betsData);
