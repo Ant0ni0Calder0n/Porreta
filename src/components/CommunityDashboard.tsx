@@ -11,6 +11,7 @@ const CommunityDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [community, setCommunity] = useState<Community | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
+  const [betsCount, setBetsCount] = useState<{[roundId: string]: number}>({});
   const [loading, setLoading] = useState(true);
   const [editingDescription, setEditingDescription] = useState(false);
   const [description, setDescription] = useState('');
@@ -46,6 +47,18 @@ const CommunityDashboard: React.FC = () => {
         roundsData.push({ id: doc.id, ...doc.data() } as Round);
       });
       setRounds(roundsData);
+
+      // Cargar conteo de apuestas por ronda
+      const countsMap: {[roundId: string]: number} = {};
+      for (const round of roundsData) {
+        const betsQuery = query(
+          collection(db, 'bets'),
+          where('roundId', '==', round.id)
+        );
+        const betsSnapshot = await getDocs(betsQuery);
+        countsMap[round.id] = betsSnapshot.size;
+      }
+      setBetsCount(countsMap);
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -159,7 +172,7 @@ const CommunityDashboard: React.FC = () => {
             </p>
           )}
         </div>
-        
+
         <div className="card">
           <button
             className="button"
@@ -184,12 +197,15 @@ const CommunityDashboard: React.FC = () => {
                 onClick={() => navigate(`/community/${communityId}/round/${round.id}`)}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <h3 style={{ margin: '0 0 8px 0' }}>
                       Ronda {new Date(round.createdAt.toDate()).toLocaleDateString()}
                     </h3>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       Límite: {new Date(round.deadline.toDate()).toLocaleString()}
+                    </p>
+                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '13px', fontWeight: '500' }}>
+                      {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
                     </p>
                   </div>
                   {getStatusBadge(round)}

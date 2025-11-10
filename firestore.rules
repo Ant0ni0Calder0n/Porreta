@@ -33,7 +33,8 @@ service cloud.firestore {
     
     // Reglas para comunidades
     match /communities/{communityId} {
-      allow read: if isCommunityMember(communityId);
+      // Permitir lectura si eres miembro O si estás authenticado (para poder verificar contraseña al unirse)
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isCommunityAdmin(communityId) ||
                       (isCommunityMember(communityId) &&
