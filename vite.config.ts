@@ -15,16 +15,16 @@ export default defineConfig({
         theme_color: '#1976d2',
         background_color: '#ffffff',
         display: 'standalone',
-        scope: '/',
-        start_url: '/',
+        scope: '/Porreta/',
+        start_url: '/Porreta/',
         icons: [
           {
-            src: 'icon-192.svg',
+            src: '/Porreta/icon-192.svg',
             sizes: '192x192',
             type: 'image/svg+xml'
           },
           {
-            src: 'icon-512.svg',
+            src: '/Porreta/icon-512.svg',
             sizes: '512x512',
             type: 'image/svg+xml'
           }
