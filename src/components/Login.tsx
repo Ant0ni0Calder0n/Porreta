@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,8 +7,15 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, currentUser, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirigir automáticamente si ya está autenticado
+  useEffect(() => {
+    if (!authLoading && currentUser) {
+      navigate('/communities');
+    }
+  }, [currentUser, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +37,15 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Mostrar pantalla de carga mientras verifica autenticación
+  if (authLoading) {
+    return (
+      <div className="container" style={{ textAlign: 'center', marginTop: '100px' }}>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container">
