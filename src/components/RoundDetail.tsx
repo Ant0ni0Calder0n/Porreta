@@ -185,7 +185,7 @@ const RoundDetail: React.FC = () => {
           </div>
         )}
 
-        {isAdmin && round.status === 'closed' && (
+        {isAdmin && !canBet && round.status !== 'results_posted' && (
           <div className="card">
             <button
               className="button"

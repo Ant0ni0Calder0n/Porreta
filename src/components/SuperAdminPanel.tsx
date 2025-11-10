@@ -7,6 +7,7 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
+  writeBatch,
   orderBy,
   where,
   Timestamp
@@ -118,18 +119,33 @@ const SuperAdminPanel: React.FC = () => {
     if (!confirmDelete) return;
 
     try {
+      let totalBetsDeleted = 0;
+      
       // 1. Buscar todas las rondas de esta comunidad
       const roundsQuery = query(collection(db, 'rounds'), where('communityId', '==', community.id));
       const roundsSnapshot = await getDocs(roundsQuery);
+      
+      console.log(`Eliminando ${roundsSnapshot.size} rondas...`);
       
       // 2. Por cada ronda, eliminar sus apuestas
       for (const roundDoc of roundsSnapshot.docs) {
         const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundDoc.id));
         const betsSnapshot = await getDocs(betsQuery);
         
-        // Eliminar todas las apuestas
-        for (const betDoc of betsSnapshot.docs) {
-          await deleteDoc(doc(db, 'bets', betDoc.id));
+        console.log(`Ronda ${roundDoc.id}: ${betsSnapshot.size} apuestas`);
+        
+        // Eliminar apuestas en batches de 500
+        const betsToDelete = betsSnapshot.docs;
+        for (let i = 0; i < betsToDelete.length; i += 500) {
+          const batch = writeBatch(db);
+          const chunk = betsToDelete.slice(i, i + 500);
+          
+          chunk.forEach(betDoc => {
+            batch.delete(doc(db, 'bets', betDoc.id));
+          });
+          
+          await batch.commit();
+          totalBetsDeleted += chunk.length;
         }
         
         // Eliminar la ronda
@@ -139,15 +155,15 @@ const SuperAdminPanel: React.FC = () => {
       // 3. Eliminar la comunidad
       await deleteDoc(doc(db, 'communities', community.id));
       
-      alert(`Comunidad eliminada correctamente.\nRondas eliminadas: ${roundsSnapshot.size}`);
+      alert(`✅ Comunidad eliminada correctamente.\n\nRondas eliminadas: ${roundsSnapshot.size}\nApuestas eliminadas: ${totalBetsDeleted}`);
       loadCommunities();
       if (selectedCommunity === community.id) {
         setSelectedCommunity(null);
         setRounds([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al eliminar comunidad:', error);
-      alert('Error al eliminar la comunidad: ' + error);
+      alert('❌ Error al eliminar la comunidad:\n\n' + (error.message || error.toString()));
     }
   };
 
@@ -167,20 +183,31 @@ const SuperAdminPanel: React.FC = () => {
       const betsQuery = query(collection(db, 'bets'), where('roundId', '==', round.id));
       const betsSnapshot = await getDocs(betsQuery);
       
-      for (const betDoc of betsSnapshot.docs) {
-        await deleteDoc(doc(db, 'bets', betDoc.id));
+      console.log(`Eliminando ${betsSnapshot.size} apuestas de la ronda ${round.id}...`);
+      
+      // Eliminar apuestas en batches de 500
+      const betsToDelete = betsSnapshot.docs;
+      for (let i = 0; i < betsToDelete.length; i += 500) {
+        const batch = writeBatch(db);
+        const chunk = betsToDelete.slice(i, i + 500);
+        
+        chunk.forEach(betDoc => {
+          batch.delete(doc(db, 'bets', betDoc.id));
+        });
+        
+        await batch.commit();
       }
       
       // 2. Eliminar la ronda
       await deleteDoc(doc(db, 'rounds', round.id));
       
-      alert(`Ronda eliminada correctamente.\nApuestas eliminadas: ${betsSnapshot.size}`);
+      alert(`✅ Ronda eliminada correctamente.\n\nApuestas eliminadas: ${betsSnapshot.size}`);
       if (selectedCommunity) {
         loadRoundsForCommunity(selectedCommunity);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al eliminar ronda:', error);
-      alert('Error al eliminar la ronda');
+      alert('❌ Error al eliminar la ronda:\n\n' + (error.message || error.toString()));
     }
   };
 

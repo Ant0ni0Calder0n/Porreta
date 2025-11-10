@@ -66,7 +66,7 @@ service cloud.firestore {
                       isCommunityMember(request.resource.data.communityId) &&
                       isUser(request.resource.data.userId);
       allow update: if isUser(resource.data.userId);
-      allow delete: if false;
+      allow delete: if isSuperAdmin();
     }
   }
 }
