@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { Community } from '../types';
 
 const Communities: React.FC = () => {
-  const { userData, logout } = useAuth();
+  const { userData, logout, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +60,25 @@ const Communities: React.FC = () => {
     <div>
       <div className="header">
         <h1>Mis Comunidades</h1>
-        <button onClick={handleLogout}>Salir</button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {isSuperAdmin && (
+            <button 
+              onClick={() => navigate('/super-admin')}
+              style={{
+                backgroundColor: '#9C27B0',
+                color: 'white',
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              🔧 Panel Super Admin
+            </button>
+          )}
+          <button onClick={handleLogout}>Salir</button>
+        </div>
       </div>
 
       <div className="container">

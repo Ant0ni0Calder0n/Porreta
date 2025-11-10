@@ -11,6 +11,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+    }
+    
     function isCommunityMember(communityId) {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -36,10 +42,11 @@ service cloud.firestore {
       // Permitir lectura si eres miembro O si estás autenticado (para poder verificar contraseña al unirse)
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isCommunityAdmin(communityId) || 
+      allow update: if isSuperAdmin() || 
+                      isCommunityAdmin(communityId) || 
                       (isCommunityMember(communityId) && 
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount']));
-      allow delete: if false;
+      allow delete: if isSuperAdmin();
     }
     
     // Reglas para rondas
@@ -47,8 +54,8 @@ service cloud.firestore {
       // Permitir lectura a cualquier usuario autenticado
       allow read: if request.auth != null;
       allow create: if request.auth != null && isCommunityMember(request.resource.data.communityId);
-      allow update: if isCommunityAdmin(resource.data.communityId);
-      allow delete: if false;
+      allow update: if isSuperAdmin() || isCommunityAdmin(resource.data.communityId);
+      allow delete: if isSuperAdmin();
     }
     
     // Reglas para apuestas

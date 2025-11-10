@@ -1,0 +1,388 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  collection, 
+  query, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc,
+  orderBy,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { Community, Round } from '../types';
+
+const SuperAdminPanel: React.FC = () => {
+  const navigate = useNavigate();
+  const { isSuperAdmin } = useAuth();
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingCommunity, setEditingCommunity] = useState<Community | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  useEffect(() => {
+    // Redirigir si no es super admin
+    if (!isSuperAdmin) {
+      navigate('/communities');
+      return;
+    }
+    loadCommunities();
+  }, [isSuperAdmin, navigate]);
+
+  const loadCommunities = async () => {
+    try {
+      setLoading(true);
+      const q = query(collection(db, 'communities'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      const communitiesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Community[];
+      setCommunities(communitiesData);
+    } catch (error) {
+      console.error('Error al cargar comunidades:', error);
+      alert('Error al cargar comunidades');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRoundsForCommunity = async (communityId: string) => {
+    try {
+      const q = query(
+        collection(db, 'rounds'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const allRounds = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Round[];
+      
+      // Filtrar solo las rondas de la comunidad seleccionada
+      const communityRounds = allRounds.filter(r => r.communityId === communityId);
+      setRounds(communityRounds);
+      setSelectedCommunity(communityId);
+    } catch (error) {
+      console.error('Error al cargar rondas:', error);
+      alert('Error al cargar rondas');
+    }
+  };
+
+  const handleEditCommunity = (community: Community) => {
+    setEditingCommunity(community);
+    setEditName(community.name);
+    setEditDescription(community.description || '');
+  };
+
+  const handleSaveCommunity = async () => {
+    if (!editingCommunity) return;
+
+    if (!editName.trim()) {
+      alert('El nombre no puede estar vacío');
+      return;
+    }
+
+    try {
+      const communityRef = doc(db, 'communities', editingCommunity.id);
+      await updateDoc(communityRef, {
+        name: editName.trim(),
+        description: editDescription.trim()
+      });
+      
+      alert('Comunidad actualizada correctamente');
+      setEditingCommunity(null);
+      loadCommunities();
+    } catch (error) {
+      console.error('Error al actualizar comunidad:', error);
+      alert('Error al actualizar la comunidad');
+    }
+  };
+
+  const handleDeleteCommunity = async (community: Community) => {
+    const confirmDelete = window.confirm(
+      `¿Estás seguro de que quieres eliminar la comunidad "${community.name}"?\n\n` +
+      `ADVERTENCIA: Esto eliminará la comunidad pero NO las rondas ni apuestas asociadas. ` +
+      `Deberás eliminar manualmente las rondas primero si lo deseas.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'communities', community.id));
+      alert('Comunidad eliminada correctamente');
+      loadCommunities();
+      if (selectedCommunity === community.id) {
+        setSelectedCommunity(null);
+        setRounds([]);
+      }
+    } catch (error) {
+      console.error('Error al eliminar comunidad:', error);
+      alert('Error al eliminar la comunidad');
+    }
+  };
+
+  const handleDeleteRound = async (round: Round) => {
+    const confirmDelete = window.confirm(
+      `¿Estás seguro de que quieres eliminar la ronda "${round.name}"?\n\n` +
+      `ADVERTENCIA: Esto NO eliminará las apuestas asociadas. ` +
+      `Las apuestas quedarán huérfanas en la base de datos.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'rounds', round.id));
+      alert('Ronda eliminada correctamente');
+      if (selectedCommunity) {
+        loadRoundsForCommunity(selectedCommunity);
+      }
+    } catch (error) {
+      console.error('Error al eliminar ronda:', error);
+      alert('Error al eliminar la ronda');
+    }
+  };
+
+  const formatDate = (timestamp: Timestamp) => {
+    return timestamp.toDate().toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>🔧 Panel de Super Administrador</h1>
+        <button onClick={() => navigate('/communities')} style={{ padding: '10px 20px' }}>
+          ← Volver a Comunidades
+        </button>
+      </div>
+
+      {/* Modal de edición */}
+      {editingCommunity && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <h3>Editar Comunidad</h3>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Nombre:</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+              />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Descripción:</label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={4}
+                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setEditingCommunity(null)} style={{ padding: '10px 20px' }}>
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveCommunity}
+                style={{ 
+                  padding: '10px 20px', 
+                  backgroundColor: '#4CAF50', 
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de comunidades */}
+      <div style={{ marginBottom: '30px' }}>
+        <h2>Todas las Comunidades ({communities.length})</h2>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+          gap: '15px',
+          marginTop: '15px'
+        }}>
+          {communities.map(community => (
+            <div 
+              key={community.id}
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                backgroundColor: selectedCommunity === community.id ? '#e3f2fd' : 'white'
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>{community.name}</h3>
+              {community.description && (
+                <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+                  {community.description}
+                </p>
+              )}
+              <p style={{ fontSize: '12px', color: '#999', marginBottom: '10px' }}>
+                Creada: {formatDate(community.createdAt)}
+              </p>
+              <p style={{ fontSize: '12px', color: '#999', marginBottom: '15px' }}>
+                Miembros: {community.membersCount}
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => loadRoundsForCommunity(community.id)}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  Ver Rondas
+                </button>
+                <button
+                  onClick={() => handleEditCommunity(community)}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => handleDeleteCommunity(community)}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista de rondas de la comunidad seleccionada */}
+      {selectedCommunity && (
+        <div>
+          <h2>Rondas de la Comunidad ({rounds.length})</h2>
+          {rounds.length === 0 ? (
+            <p style={{ color: '#999' }}>No hay rondas en esta comunidad</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+              {rounds.map(round => (
+                <div 
+                  key={round.id}
+                  style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{round.name}</h3>
+                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                        <strong>Estado:</strong> {
+                          round.status === 'open' ? '🟢 Abierta' :
+                          round.status === 'closed' ? '🔴 Cerrada' :
+                          '✅ Resultados Publicados'
+                        }
+                      </p>
+                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                        <strong>Fecha límite:</strong> {formatDate(round.deadline)}
+                      </p>
+                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                        <strong>Creada:</strong> {formatDate(round.createdAt)}
+                      </p>
+                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>
+                        <strong>Partidos:</strong> {round.matches.length}
+                      </p>
+                      {round.status === 'results_posted' && round.winnerNick && (
+                        <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#4CAF50' }}>
+                          🏆 Ganador: {round.winnerNick}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteRound(round)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      Eliminar Ronda
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SuperAdminPanel;

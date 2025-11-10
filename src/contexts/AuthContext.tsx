@@ -14,6 +14,7 @@ interface AuthContextType {
   currentUser: FirebaseUser | null;
   userData: User | null;
   loading: boolean;
+  isSuperAdmin: boolean;
   signup: (email: string, password: string, nick: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -93,6 +94,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     currentUser,
     userData,
     loading,
+    isSuperAdmin: userData?.isSuperAdmin === true,
     signup,
     login,
     logout,

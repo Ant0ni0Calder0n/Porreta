@@ -8,6 +8,7 @@ export interface User {
   nick: string;
   createdAt: Timestamp;
   communities: Record<string, UserRole>;
+  isSuperAdmin?: boolean; // Campo que se establece manualmente en Firebase Console
 }
 
 export interface Community {

@@ -9,6 +9,7 @@ import CreateRound from './components/CreateRound';
 import RoundDetail from './components/RoundDetail';
 import CreateBet from './components/CreateBet';
 import PublishResults from './components/PublishResults';
+import SuperAdminPanel from './components/SuperAdminPanel';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -72,6 +73,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PublishResults />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute>
+                <SuperAdminPanel />
               </ProtectedRoute>
             }
           />
