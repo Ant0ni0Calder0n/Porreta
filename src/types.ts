@@ -18,6 +18,7 @@ export interface Community {
   createdBy: string;
   createdAt: Timestamp;
   membersCount: number;
+  description?: string;
 }
 
 export type MatchType = 'exact' | '1X2';

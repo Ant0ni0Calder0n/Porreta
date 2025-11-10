@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Community } from '../types';
 
 const CommunityDashboard: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
+  const { userData } = useAuth();
   const navigate = useNavigate();
   const [community, setCommunity] = useState<Community | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [description, setDescription] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
+
+  const isAdmin = userData?.communities[communityId || ''] === 'admin';
 
   useEffect(() => {
     loadData();
@@ -22,7 +29,9 @@ const CommunityDashboard: React.FC = () => {
       // Cargar comunidad
       const communityDoc = await getDoc(doc(db, 'communities', communityId));
       if (communityDoc.exists()) {
-        setCommunity({ id: communityDoc.id, ...communityDoc.data() } as Community);
+        const communityData = { id: communityDoc.id, ...communityDoc.data() } as Community;
+        setCommunity(communityData);
+        setDescription(communityData.description || '');
       }
 
       // Cargar rondas
@@ -41,6 +50,28 @@ const CommunityDashboard: React.FC = () => {
       console.error('Error cargando datos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveDescription = async () => {
+    if (!communityId || !isAdmin) return;
+
+    setSavingDescription(true);
+    try {
+      await updateDoc(doc(db, 'communities', communityId), {
+        description
+      });
+
+      if (community) {
+        setCommunity({ ...community, description });
+      }
+
+      setEditingDescription(false);
+    } catch (error) {
+      console.error('Error guardando descripción:', error);
+      alert('Error al guardar la descripción');
+    } finally {
+      setSavingDescription(false);
     }
   };
 
@@ -75,6 +106,60 @@ const CommunityDashboard: React.FC = () => {
       </div>
 
       <div className="container">
+        {/* Descripción de la comunidad */}
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#666' }}>Información</h3>
+            {isAdmin && !editingDescription && (
+              <button
+                className="button button-secondary"
+                onClick={() => setEditingDescription(true)}
+                style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', marginTop: 0 }}
+              >
+                Editar
+              </button>
+            )}
+          </div>
+          
+          {editingDescription ? (
+            <div>
+              <textarea
+                className="input"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Añade información para los miembros de la comunidad..."
+                rows={4}
+                style={{ resize: 'vertical', minHeight: '80px' }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="button"
+                  onClick={handleSaveDescription}
+                  disabled={savingDescription}
+                  style={{ flex: 1 }}
+                >
+                  {savingDescription ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  className="button button-secondary"
+                  onClick={() => {
+                    setDescription(community?.description || '');
+                    setEditingDescription(false);
+                  }}
+                  disabled={savingDescription}
+                  style={{ flex: 1 }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.5' }}>
+              {description || (isAdmin ? 'Haz clic en "Editar" para añadir información...' : 'Sin información')}
+            </p>
+          )}
+        </div>
+        
         <div className="card">
           <button
             className="button"

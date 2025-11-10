@@ -35,7 +35,9 @@ service cloud.firestore {
     match /communities/{communityId} {
       allow read: if isCommunityMember(communityId);
       allow create: if isAuthenticated();
-      allow update: if isCommunityAdmin(communityId);
+      allow update: if isCommunityAdmin(communityId) ||
+                      (isCommunityMember(communityId) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount']));
       allow delete: if false;
     }
     
