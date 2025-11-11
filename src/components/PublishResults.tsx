@@ -126,13 +126,19 @@ const PublishResults: React.FC = () => {
     if (!round || !roundId || !communityId) return;
 
     try {
-      // Convertir liveResults a MatchResult[]
-      const results: MatchResult[] = liveResults.map(lr => ({
-        type: lr.type,
-        homeGoals: lr.homeGoals,
-        awayGoals: lr.awayGoals,
-        result: lr.result
-      }));
+      // Convertir liveResults a MatchResult[] - asegurar que no haya undefined
+      const results: MatchResult[] = liveResults.map(lr => {
+        const result: MatchResult = { type: lr.type };
+        
+        if (lr.type === 'exact') {
+          result.homeGoals = lr.homeGoals ?? 0;
+          result.awayGoals = lr.awayGoals ?? 0;
+        } else if (lr.type === '1X2') {
+          result.result = lr.result ?? '1';
+        }
+        
+        return result;
+      });
 
       // Calcular ganador
       const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundId));
@@ -186,13 +192,18 @@ const PublishResults: React.FC = () => {
 
       console.log('🏆 Ganador calculado:', { winnerId, winnerNick, maxPoints });
 
-      await updateDoc(doc(db, 'rounds', roundId), {
+      // Actualizar la ronda con los resultados
+      const updateData: any = {
         results,
         status: 'results_posted',
         winnerId,
-        winnerNick,
-        liveResults: null
-      });
+        winnerNick
+      };
+      
+      // Eliminar liveResults (usar deleteField en lugar de null)
+      updateData.liveResults = [];
+
+      await updateDoc(doc(db, 'rounds', roundId), updateData);
 
       alert('🏆 ¡Resultados oficiales publicados!');
       navigate(`/community/${communityId}/round/${roundId}`);
