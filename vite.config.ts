@@ -19,12 +19,12 @@ export default defineConfig({
         start_url: '/Porreta/',
         icons: [
           {
-            src: '/Porreta/icon-192.svg',
+            src: '/Porreta/icon-192.png',
             sizes: '192x192',
             type: 'image/svg+xml'
           },
           {
-            src: '/Porreta/icon-512.svg',
+            src: '/Porreta/icon-512.png',
             sizes: '512x512',
             type: 'image/svg+xml'
           }
