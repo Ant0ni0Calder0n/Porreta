@@ -304,7 +304,7 @@ const RoundDetail: React.FC = () => {
                         backgroundColor: status.isAlive ? '#4CAF50' : '#f44336',
                         color: 'white'
                       }}>
-                        {status.isAlive ? `🟢 Viva (${status.points} pts)` : '🔴 Eliminada'}
+                        {status.isAlive ? `🟢 Viva (${status.points} ${status.points === 1 ? 'acierto' : 'aciertos'})` : '🔴 Eliminada'}
                       </span>
                     )}
                   </div>

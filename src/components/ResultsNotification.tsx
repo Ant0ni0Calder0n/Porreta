@@ -105,7 +105,7 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
               </h3>
               <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: isBote ? '#856404' : '#155724' }}>
                 {isBote ? (
-                  '💰 ¡BOTE! Nadie acertó'
+                  '💰¡¡¡¡ BOOOOTEEEE !!!!'
                 ) : isMultipleWinners ? (
                   <>
                     {isWinner && '🏆 ¡FELICIDADES, HAS GANADO!'}

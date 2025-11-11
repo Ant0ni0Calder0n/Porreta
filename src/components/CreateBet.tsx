@@ -192,8 +192,8 @@ const CreateBet: React.FC = () => {
                       type="number"
                       min="0"
                       className="input"
-                      value={predictions[idx].homeGoals || 0}
-                      onChange={(e) => handlePredictionChange(idx, 'homeGoals', parseInt(e.target.value) || 0)}
+                      value={predictions[idx].homeGoals === undefined ? '' : predictions[idx].homeGoals}
+                      onChange={(e) => handlePredictionChange(idx, 'homeGoals', e.target.value === '' ? undefined : parseInt(e.target.value))}
                       disabled={submitting}
                       placeholder="0"
                     />
@@ -202,8 +202,8 @@ const CreateBet: React.FC = () => {
                       type="number"
                       min="0"
                       className="input"
-                      value={predictions[idx].awayGoals || 0}
-                      onChange={(e) => handlePredictionChange(idx, 'awayGoals', parseInt(e.target.value) || 0)}
+                      value={predictions[idx].awayGoals === undefined ? '' : predictions[idx].awayGoals}
+                      onChange={(e) => handlePredictionChange(idx, 'awayGoals', e.target.value === '' ? undefined : parseInt(e.target.value))}
                       disabled={submitting}
                       placeholder="0"
                     />

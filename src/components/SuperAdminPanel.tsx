@@ -114,9 +114,11 @@ const SuperAdminPanel: React.FC = () => {
     setEditingRound(round);
     setEditRoundName(round.name);
     
-    // Convertir Timestamp a string de fecha/hora para el input
+    // Convertir Timestamp a string de fecha/hora LOCAL para el input
     const deadlineDate = round.deadline.toDate();
-    const formattedDeadline = deadlineDate.toISOString().slice(0, 16); // formato: YYYY-MM-DDTHH:mm
+    // Restar el offset de zona horaria para obtener la hora local correcta
+    const localDate = new Date(deadlineDate.getTime() - deadlineDate.getTimezoneOffset() * 60000);
+    const formattedDeadline = localDate.toISOString().slice(0, 16); // formato: YYYY-MM-DDTHH:mm
     setEditRoundDeadline(formattedDeadline);
     
     setEditRoundMatches(round.matches);
