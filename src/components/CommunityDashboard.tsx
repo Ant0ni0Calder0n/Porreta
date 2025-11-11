@@ -57,11 +57,20 @@ const CommunityDashboard: React.FC = () => {
       const querySnapshot = await getDocs(q);
       console.log('📊 Rondas encontradas:', querySnapshot.size);
       
-      const roundsData: Round[] = [];
+      let roundsData: Round[] = [];
       querySnapshot.forEach((doc) => {
         console.log('✅ Ronda:', doc.id, doc.data());
         roundsData.push({ id: doc.id, ...doc.data() } as Round);
       });
+
+      // Filtrar rondas ocultas si el usuario NO es admin
+      if (!isAdmin) {
+        roundsData = roundsData.filter(round => round.isVisible !== false);
+      }
+
+      // Ordenar por deadline ascendente (más cercana primero)
+      roundsData.sort((a, b) => a.deadline.toMillis() - b.deadline.toMillis());
+
       setRounds(roundsData);
 
       // Cargar contador de apuestas por cada ronda

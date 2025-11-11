@@ -26,6 +26,10 @@ const SuperAdminPanel: React.FC = () => {
   const [editingCommunity, setEditingCommunity] = useState<Community | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editingRound, setEditingRound] = useState<Round | null>(null);
+  const [editRoundName, setEditRoundName] = useState('');
+  const [editRoundDeadline, setEditRoundDeadline] = useState('');
+  const [editRoundMatches, setEditRoundMatches] = useState<any[]>([]);
 
   useEffect(() => {
     // Redirigir si no es super admin
@@ -103,6 +107,50 @@ const SuperAdminPanel: React.FC = () => {
     } catch (error) {
       console.error('Error al actualizar comunidad:', error);
       alert('Error al actualizar la comunidad');
+    }
+  };
+
+  const handleEditRound = (round: Round) => {
+    setEditingRound(round);
+    setEditRoundName(round.name);
+    
+    // Convertir Timestamp a string de fecha/hora para el input
+    const deadlineDate = round.deadline.toDate();
+    const formattedDeadline = deadlineDate.toISOString().slice(0, 16); // formato: YYYY-MM-DDTHH:mm
+    setEditRoundDeadline(formattedDeadline);
+    
+    setEditRoundMatches(round.matches);
+  };
+
+  const handleSaveRound = async () => {
+    if (!editingRound) return;
+
+    if (!editRoundName.trim()) {
+      alert('El nombre no puede estar vacío');
+      return;
+    }
+
+    if (!editRoundDeadline) {
+      alert('La fecha límite es obligatoria');
+      return;
+    }
+
+    try {
+      const roundRef = doc(db, 'rounds', editingRound.id);
+      await updateDoc(roundRef, {
+        name: editRoundName.trim(),
+        deadline: Timestamp.fromDate(new Date(editRoundDeadline)),
+        matches: editRoundMatches
+      });
+      
+      alert('Ronda actualizada correctamente');
+      setEditingRound(null);
+      if (selectedCommunity) {
+        loadRoundsForCommunity(selectedCommunity);
+      }
+    } catch (error) {
+      console.error('Error al actualizar ronda:', error);
+      alert('Error al actualizar la ronda');
     }
   };
 
@@ -298,6 +346,137 @@ const SuperAdminPanel: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de edición de ronda */}
+      {editingRound && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          overflow: 'auto',
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '700px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h3>Editar Ronda</h3>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nombre:</label>
+              <input
+                type="text"
+                value={editRoundName}
+                onChange={(e) => setEditRoundName(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+              />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Fecha límite:</label>
+              <input
+                type="datetime-local"
+                value={editRoundDeadline}
+                onChange={(e) => setEditRoundDeadline(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <h4>Partidos ({editRoundMatches.length})</h4>
+              {editRoundMatches.map((match, index) => (
+                <div key={index} style={{ 
+                  marginBottom: '15px', 
+                  padding: '15px', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  backgroundColor: '#f9f9f9'
+                }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Equipo Local:</label>
+                    <input
+                      type="text"
+                      value={match.homeTeam}
+                      onChange={(e) => {
+                        const newMatches = [...editRoundMatches];
+                        newMatches[index].homeTeam = e.target.value;
+                        setEditRoundMatches(newMatches);
+                      }}
+                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Equipo Visitante:</label>
+                    <input
+                      type="text"
+                      value={match.awayTeam}
+                      onChange={(e) => {
+                        const newMatches = [...editRoundMatches];
+                        newMatches[index].awayTeam = e.target.value;
+                        setEditRoundMatches(newMatches);
+                      }}
+                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Tipo de Apuesta:</label>
+                    <select
+                      value={match.type}
+                      onChange={(e) => {
+                        const newMatches = [...editRoundMatches];
+                        newMatches[index].type = e.target.value;
+                        setEditRoundMatches(newMatches);
+                      }}
+                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
+                    >
+                      <option value="exact">Resultado Exacto</option>
+                      <option value="1X2">1 X 2</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setEditingRound(null)} 
+                style={{ 
+                  padding: '10px 20px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveRound}
+                style={{ 
+                  padding: '10px 20px', 
+                  backgroundColor: '#4CAF50', 
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lista de comunidades */}
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Todas las Comunidades ({communities.length})</h2>
@@ -421,20 +600,36 @@ const SuperAdminPanel: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDeleteRound(round)}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#f44336',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '13px'
-                      }}
-                    >
-                      Eliminar Ronda
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleEditRound(round)}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#2196F3',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        Editar Ronda
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRound(round)}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        Eliminar Ronda
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

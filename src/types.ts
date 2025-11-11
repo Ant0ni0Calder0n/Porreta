@@ -56,6 +56,7 @@ export interface Round {
   liveResults?: LiveResult[]; // Resultados en vivo (antes de publicar oficialmente)
   winnerId?: string | null; // ID del ganador o null si es bote
   winnerNick?: string | null; // Nick del ganador o "BOTE"
+  isVisible?: boolean; // Si es false, la ronda solo es visible para admins
 }
 
 export interface MatchResult {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Bet } from '../types';
 
@@ -166,6 +166,40 @@ const RoundDetail: React.FC = () => {
       </div>
 
       <div className="container">
+        {isAdmin && (
+          <div className="card" style={{ backgroundColor: '#fff3e0', borderLeft: '4px solid #FF9800' }}>
+            <h3 style={{ marginTop: 0, color: '#F57C00' }}>🔧 Opciones de Administrador</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ fontSize: '14px', fontWeight: '500' }}>
+                Visibilidad de la ronda:
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={round.isVisible !== false}
+                  onChange={async (e) => {
+                    const newVisibility = e.target.checked;
+                    try {
+                      await updateDoc(doc(db, 'rounds', roundId!), {
+                        isVisible: newVisibility
+                      });
+                      setRound({ ...round, isVisible: newVisibility });
+                      alert(newVisibility ? 'Ronda visible para todos los usuarios' : 'Ronda oculta (solo visible para admins)');
+                    } catch (error) {
+                      console.error('Error al actualizar visibilidad:', error);
+                      alert('Error al cambiar la visibilidad');
+                    }
+                  }}
+                  style={{ marginRight: '8px', width: '18px', height: '18px' }}
+                />
+                <span style={{ fontSize: '14px' }}>
+                  {round.isVisible !== false ? '👁️ Visible para todos' : '🔒 Oculta (solo admins)'}
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Partidos</h2>
           {round.matches.map((match, idx) => (
@@ -174,7 +208,7 @@ const RoundDetail: React.FC = () => {
                 {match.homeTeam} vs {match.awayTeam}
               </p>
               <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
-                Tipo: {match.type === 'exact' ? 'Resultado Exacto' : '1/X/2'}
+                Tipo: {match.type === 'exact' ? 'Resultado Exacto' : '1 X 2'}
               </p>
             </div>
           ))}
