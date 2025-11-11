@@ -13,8 +13,8 @@ const CreateBet: React.FC = () => {
   const [round, setRound] = useState<Round | null>(null);
   const [existingBet, setExistingBet] = useState<Bet | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([
-    { type: 'exact', homeGoals: 0, awayGoals: 0 },
-    { type: 'exact', homeGoals: 0, awayGoals: 0 },
+    { type: 'exact', homeGoals: undefined, awayGoals: undefined },
+    { type: 'exact', homeGoals: undefined, awayGoals: undefined },
     { type: '1X2', pick: '1' }
   ]);
   const [error, setError] = useState('');
@@ -47,6 +47,16 @@ const CreateBet: React.FC = () => {
           const betData = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Bet;
           setExistingBet(betData);
           setPredictions(betData.predictions);
+        } else {
+          // Inicializar predicciones vacías según los partidos de la ronda
+          const initialPredictions: Prediction[] = roundData.matches.map(match => {
+            if (match.type === 'exact') {
+              return { type: 'exact', homeGoals: undefined, awayGoals: undefined };
+            } else {
+              return { type: '1X2', pick: '1' };
+            }
+          });
+          setPredictions(initialPredictions);
         }
       }
     } catch (error) {
@@ -93,6 +103,17 @@ const CreateBet: React.FC = () => {
     e.preventDefault();
 
     if (!round || !currentUser || !userData || !communityId || !roundId) return;
+
+    // Validar que todos los campos estén completos
+    for (let i = 0; i < predictions.length; i++) {
+      const pred = predictions[i];
+      if (pred.type === 'exact') {
+        if (pred.homeGoals === undefined || pred.awayGoals === undefined) {
+          setError(`Por favor, completa el resultado del partido ${i + 1}`);
+          return;
+        }
+      }
+    }
 
     // Validar deadline
     if (new Date(round.deadline.toDate()) <= new Date()) {
