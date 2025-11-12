@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -7,6 +8,7 @@ import { Community } from '../types';
 
 const Communities: React.FC = () => {
   const { userData, logout, isSuperAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,24 @@ const Communities: React.FC = () => {
               🔧
             </button>
           )}
+          <button
+            onClick={toggleTheme}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              padding: '10px 16px',
+              border: '1px solid white',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
           <button onClick={handleLogout}>Salir</button>
         </div>
       </div>

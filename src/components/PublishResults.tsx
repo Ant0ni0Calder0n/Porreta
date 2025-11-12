@@ -177,16 +177,17 @@ const PublishResults: React.FC = () => {
         }
       });
 
-      console.log('🏆 Resultado final:', {winnersCount: winners.length });
+      console.log('🏆 Resultado final:', { winnersCount: winners.length });
 
       // Determinar ganador
       if (winners.length === 1) {
         winnerId = winners[0].userId;
         winnerNick = winners[0].userNick;
-      } else if (winners.length > 1 ) {
+      } else if (winners.length > 1) {
         winnerId = null;
         winnerNick = winners.map(w => w.userNick).join(', ');
       } else {
+        // Nadie acertó todo = BOTE
         winnerId = null;
         winnerNick = 'BOTE';
       }
@@ -269,11 +270,12 @@ const PublishResults: React.FC = () => {
           return (
             <div 
               key={index}
+              className="card"
               style={{
                 border: '2px solid #ddd',
                 borderRadius: '8px',
                 padding: '20px',
-                backgroundColor: lr.status === 'final' ? '#e8f5e9' : lr.status === 'live' ? '#fff3e0' : 'white'
+                opacity: lr.status === 'final' ? 1 : lr.status === 'live' ? 0.95 : 0.9
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>

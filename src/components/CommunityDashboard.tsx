@@ -7,12 +7,12 @@ import { Round, Community } from '../types';
 import ResultsNotification from './ResultsNotification';
 
 // Función para formatear el tiempo restante hasta el deadline
-const formatTiemeRemaining = (deadline: Timestamp): { text: string; color: string; icon: string } => {
+const formatTimeRemaining = (deadline: Timestamp): { text: string; color: string; icon: string } => {
   const now = new Date();
   const deadlineDate = deadline.toDate();
   const diffMs = deadlineDate.getTime() - now.getTime();
 
-  // Ya cerrado
+  // Ya cerrada
   if (diffMs <= 0) {
     return { text: 'Cerrada', color: '#999', icon: '🔒' };
   }
@@ -30,13 +30,13 @@ const formatTiemeRemaining = (deadline: Timestamp): { text: string; color: strin
   if (diffHours < 24) {
     return { text: `Quedan ${diffHours} horas`, color: '#f57c00', icon: '⏰' };
   }
-  
+
   // Más de 1 día
   const remainingHours = diffHours % 24;
   if (diffDays === 1) {
     return { text: `Queda 1 día ${remainingHours}h`, color: '#388e3c', icon: '⏰' };
   }
-
+  
   return { text: `Quedan ${diffDays} días ${remainingHours}h`, color: '#388e3c', icon: '⏰' };
 };
 
@@ -108,10 +108,10 @@ const CommunityDashboard: React.FC = () => {
 
       setRounds(roundsData);
 
-      // Cargar contador de apuestas por cada ronda y verifica apuestas del usuario
+      // Cargar contador de apuestas por cada ronda y verificar apuestas del usuario
       const countsMap: { [roundId: string]: number } = {};
       const userBetsMap: { [roundId: string]: boolean } = {};
-
+      
       for (const round of roundsData) {
         // Contar total de apuestas
         const betsQuery = query(
@@ -120,8 +120,8 @@ const CommunityDashboard: React.FC = () => {
         );
         const betsSnapshot = await getDocs(betsQuery);
         countsMap[round.id] = betsSnapshot.size;
-
-        // Verificar si el usuario actual ha apostado
+        
+        // Verificar si el usuario actual ya apostó
         if (userData?.uid) {
           const userBetQuery = query(
             collection(db, 'bets'),
@@ -132,7 +132,7 @@ const CommunityDashboard: React.FC = () => {
           userBetsMap[round.id] = !userBetSnapshot.empty;
         }
       }
-
+      
       setBetsCount(countsMap);
       setUserBets(userBetsMap);
     } catch (error) {
@@ -191,7 +191,7 @@ const CommunityDashboard: React.FC = () => {
           color: 'white',
           fontWeight: '500'
         }}>
-          ✅ Apuesta realizada
+          ✅ Ya apostaste
         </span>
       );
     }
@@ -311,8 +311,8 @@ const CommunityDashboard: React.FC = () => {
                 className="list-item"
                 onClick={() => navigate(`/community/${communityId}/round/${round.id}`)}
                 style={{
-                  backgroundColor: round.isVisible === false ? '#f5f5f5' : 'white',
-                  borderLeft: round.isVisible === false ? '4px solid #FF9800' : 'none'
+                  borderLeft: round.isVisible === false ? '4px solid #FF9800' : 'none',
+                  opacity: round.isVisible === false ? 0.7 : 1
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -336,7 +336,7 @@ const CommunityDashboard: React.FC = () => {
                     </div>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       {(() => {
-                        const timeInfo = formatTiemeRemaining(round.deadline);
+                        const timeInfo = formatTimeRemaining(round.deadline);
                         return (
                           <span style={{ color: timeInfo.color, fontWeight: '500' }}>
                             {timeInfo.icon} {timeInfo.text}
@@ -344,7 +344,7 @@ const CommunityDashboard: React.FC = () => {
                         );
                       })()}
                     </p>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                       <p style={{ margin: 0, color: '#007bff', fontSize: '13px', fontWeight: '500' }}>
                         {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
                       </p>

@@ -300,30 +300,24 @@ const SuperAdminPanel: React.FC = () => {
           justifyContent: 'center',
           zIndex: 1000
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '8px',
-            maxWidth: '500px',
-            width: '90%'
-          }}>
+          <div className="modal">
             <h3>Editar Comunidad</h3>
             <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Nombre:</label>
+              <label className="label">Nombre:</label>
               <input
                 type="text"
+                className="input"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Descripción:</label>
+              <label className="label">Descripción:</label>
               <textarea
+                className="input"
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={4}
-                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               />
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -364,32 +358,24 @@ const SuperAdminPanel: React.FC = () => {
           overflow: 'auto',
           padding: '20px'
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px',
-            borderRadius: '8px',
-            maxWidth: '700px',
-            width: '90%',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
+          <div className="modal" style={{ maxHeight: '90vh', overflow: 'auto' }}>
             <h3>Editar Ronda</h3>
             <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nombre:</label>
+              <label className="label">Nombre:</label>
               <input
                 type="text"
+                className="input"
                 value={editRoundName}
                 onChange={(e) => setEditRoundName(e.target.value)}
-                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Fecha límite:</label>
+              <label className="label">Fecha límite:</label>
               <input
                 type="datetime-local"
+                className="input"
                 value={editRoundDeadline}
                 onChange={(e) => setEditRoundDeadline(e.target.value)}
-                style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               />
             </div>
             
@@ -399,46 +385,45 @@ const SuperAdminPanel: React.FC = () => {
                 <div key={index} style={{ 
                   marginBottom: '15px', 
                   padding: '15px', 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px',
-                  backgroundColor: '#f9f9f9'
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '4px'
                 }}>
                   <div style={{ marginBottom: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Equipo Local:</label>
+                    <label className="label">Equipo Local:</label>
                     <input
                       type="text"
+                      className="input"
                       value={match.homeTeam}
                       onChange={(e) => {
                         const newMatches = [...editRoundMatches];
                         newMatches[index].homeTeam = e.target.value;
                         setEditRoundMatches(newMatches);
                       }}
-                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
                     />
                   </div>
                   <div style={{ marginBottom: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Equipo Visitante:</label>
+                    <label className="label">Equipo Visitante:</label>
                     <input
                       type="text"
+                      className="input"
                       value={match.awayTeam}
                       onChange={(e) => {
                         const newMatches = [...editRoundMatches];
                         newMatches[index].awayTeam = e.target.value;
                         setEditRoundMatches(newMatches);
                       }}
-                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>Tipo de Apuesta:</label>
+                    <label className="label">Tipo de Apuesta:</label>
                     <select
+                      className="input"
                       value={match.type}
                       onChange={(e) => {
                         const newMatches = [...editRoundMatches];
                         newMatches[index].type = e.target.value;
                         setEditRoundMatches(newMatches);
                       }}
-                      style={{ width: '100%', padding: '6px', fontSize: '14px' }}
                     >
                       <option value="exact">Resultado Exacto</option>
                       <option value="1X2">1 X 2</option>
@@ -491,23 +476,24 @@ const SuperAdminPanel: React.FC = () => {
           {communities.map(community => (
             <div 
               key={community.id}
+              className="card"
               style={{
                 border: '1px solid #ddd',
                 borderRadius: '8px',
                 padding: '15px',
-                backgroundColor: selectedCommunity === community.id ? '#e3f2fd' : 'white'
+                opacity: selectedCommunity === community.id ? 1 : 0.85
               }}
             >
               <h3 style={{ marginTop: 0 }}>{community.name}</h3>
               {community.description && (
-                <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                   {community.description}
                 </p>
               )}
-              <p style={{ fontSize: '12px', color: '#999', marginBottom: '10px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                 Creada: {formatDate(community.createdAt)}
               </p>
-              <p style={{ fontSize: '12px', color: '#999', marginBottom: '15px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '15px' }}>
                 Miembros: {community.membersCount}
               </p>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -570,30 +556,30 @@ const SuperAdminPanel: React.FC = () => {
               {rounds.map(round => (
                 <div 
                   key={round.id}
+                  className="card"
                   style={{
                     border: '1px solid #ddd',
                     borderRadius: '8px',
-                    padding: '15px',
-                    backgroundColor: 'white'
+                    padding: '15px'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{round.name}</h3>
-                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
                         <strong>Estado:</strong> {
                           round.status === 'open' ? '🟢 Abierta' :
                           round.status === 'closed' ? '🔴 Cerrada' :
                           '✅ Resultados Publicados'
                         }
                       </p>
-                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
                         <strong>Fecha límite:</strong> {formatDate(round.deadline)}
                       </p>
-                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
                         <strong>Creada:</strong> {formatDate(round.createdAt)}
                       </p>
-                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                         <strong>Partidos:</strong> {round.matches.length}
                       </p>
                       {round.status === 'results_posted' && round.winnerNick && (

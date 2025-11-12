@@ -167,8 +167,8 @@ const RoundDetail: React.FC = () => {
 
       <div className="container">
         {isAdmin && (
-          <div className="card" style={{ backgroundColor: '#fff3e0', borderLeft: '4px solid #FF9800' }}>
-            <h3 style={{ marginTop: 0, color: '#F57C00' }}>🔧 Opciones de Administrador</h3>
+          <div className="card" style={{ borderLeft: '4px solid #FF9800', opacity: 0.95 }}>
+            <h3 style={{ marginTop: 0, color: '#FF9800' }}>🔧 Opciones de Administrador</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <label style={{ fontSize: '14px', fontWeight: '500' }}>
                 Visibilidad de la ronda:
@@ -244,9 +244,9 @@ const RoundDetail: React.FC = () => {
         )}
 
         {round.liveResults && round.liveResults.some(lr => lr.status !== 'pending') && (
-          <div className="card" style={{ backgroundColor: '#fff3e0', borderLeft: '4px solid #FF9800' }}>
-            <h3 style={{ marginTop: 0, color: '#F57C00' }}>🔴 Resultados En Vivo</h3>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+          <div className="card" style={{ borderLeft: '4px solid #FF9800', opacity: 0.95 }}>
+            <h3 style={{ marginTop: 0, color: '#FF9800' }}>🔴 Resultados En Vivo</h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '15px' }}>
               El admin está actualizando resultados. Las apuestas en <strong style={{ color: '#4CAF50' }}>verde</strong> siguen vivas, 
               las de <strong style={{ color: '#f44336' }}>rojo</strong> ya no pueden ganar.
             </p>
@@ -277,17 +277,20 @@ const RoundDetail: React.FC = () => {
                 <div
                   key={bet.id}
                   style={{
+                    border: '1px solid var(--border-color)',
                     padding: '12px',
                     marginBottom: '12px',
                     backgroundColor: bet.userId === currentUser?.uid 
-                      ? '#e3f2fd' 
+                      ? 'rgba(33, 150, 243, 0.1)' 
                       : hasLiveResults
                         ? status.isAlive ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'
-                        : '#f5f5f5',
+                        : 'var(--bg-secondary)',
                     borderRadius: '4px',
                     borderLeft: hasLiveResults 
                       ? `4px solid ${status.isAlive ? '#4CAF50' : '#f44336'}`
-                      : 'none'
+                      : bet.userId === currentUser?.uid 
+                        ? '4px solid #2196F3'
+                        : 'none'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
