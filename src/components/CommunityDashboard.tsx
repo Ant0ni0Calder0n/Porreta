@@ -226,11 +226,27 @@ const CommunityDashboard: React.FC = () => {
                 key={round.id}
                 className="list-item"
                 onClick={() => navigate(`/community/${communityId}/round/${round.id}`)}
+                style={{
+                  backgroundColor: round.isVisible === false ? '#f5f5f5' : 'white',
+                  borderLeft: round.isVisible === false ? '4px solid #FF9800' : 'none'
+                }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 8px 0' }}>
+                    <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', fontSize: '8px' }}>
                       {round.name}
+                      {isAdmin && round.isVisible === false && (
+                        <span style={{
+                          fontSize: '12px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: '#FF9800',
+                          color: 'white',
+                          fontWeight: 'normal'
+                        }}>
+                          🔒 Oculta
+                        </span>
+                      )}
                     </h3>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       Límite: {new Date(round.deadline.toDate()).toLocaleString()}
