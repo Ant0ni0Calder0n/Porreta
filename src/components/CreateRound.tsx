@@ -12,6 +12,7 @@ const CreateRound: React.FC = () => {
   
   const [name, setName] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
   const [matches, setMatches] = useState<Match[]>([
     { homeTeam: '', awayTeam: '', type: 'exact' },
     { homeTeam: '', awayTeam: '', type: 'exact' },
@@ -65,7 +66,8 @@ const CreateRound: React.FC = () => {
         name: name.trim(),
         deadline: deadlineDate,
         matches,
-        status: 'open'
+        status: 'open',
+        isVisible: isVisible
       });
       
       console.log('✅ Ronda creada con ID:', roundDoc.id);
@@ -113,6 +115,25 @@ const CreateRound: React.FC = () => {
                 onChange={(e) => setDeadline(e.target.value)}
                 disabled={loading}
               />
+            </div>
+            <div style={{ marginTop: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer'}}>
+                <input
+                  type="checkbox"
+                  checked={isVisible}
+                  onChange={(e) => setIsVisible(e.target.checked)}
+                  disabled={loading}
+                  style={{ marginRight: '8px', width: '18px', height: '18px' }}
+                />
+                <span style={{ fontSize: '14px' }}>
+                  {isVisible ? '👁️ Ronda visible para todos los usuarios' : '🔒 Ronda oculta (solo admins)'}
+                </span>
+              </label>
+              <p style={{ margin: '8px 0 0 26px', fontSize: '13px', color: '#666'}}>
+                {isVisible
+                ? 'Los usuarios podrán ver y apostar en esta ronda inmediatamente.'
+                : 'La ronda estará oculta para los usuarios. Solo tú (admin) podrás verla y hacerla visible más tarde.'}
+              </p>
             </div>
           </div>
 
