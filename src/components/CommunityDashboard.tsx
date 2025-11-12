@@ -52,6 +52,7 @@ const CommunityDashboard: React.FC = () => {
   const [editingDescription, setEditingDescription] = useState(false);
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'finished'>('active');
   
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
 
@@ -210,6 +211,54 @@ const CommunityDashboard: React.FC = () => {
     );
   };
 
+  // Filtrar rondas según la pestaña activa
+  const filteredRounds = rounds.filter(round => {
+    if (activeTab === 'active') {
+      // Activas: open, closed, o results_posted de hace menos de 7 días
+      if (round.status === 'open' || round.status === 'closed') {
+        return true;
+      }
+      
+      // Si tiene resultados publicados, verificar si hace menos de 7 días
+      if (round.status === 'results_posted' && round.resultsPublishedAt) {
+        const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+        return daysSincePublished < 7;
+      }
+      
+      return false;
+    } else {
+      // Finalizadas: results_posted de hace más de 7 días (o sin fecha = antiguas)
+      if (round.status === 'results_posted') {
+        if (!round.resultsPublishedAt) {
+          // Rondas antiguas sin timestamp (por compatibilidad)
+          return true;
+        }
+        const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+        return daysSincePublished >= 7;
+      }
+      return false;
+    }
+  });
+
+  // Calcular contadores para las pestañas
+  const activeCount = rounds.filter(r => {
+    if (r.status === 'open' || r.status === 'closed') return true;
+    if (r.status === 'results_posted' && r.resultsPublishedAt) {
+      const daysSincePublished = (Date.now() - r.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+      return daysSincePublished < 7;
+    }
+    return false;
+  }).length;
+
+  const finishedCount = rounds.filter(r => {
+    if (r.status === 'results_posted') {
+      if (!r.resultsPublishedAt) return true;
+      const daysSincePublished = (Date.now() - r.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+      return daysSincePublished >= 7;
+    }
+    return false;
+  }).length;
+
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -297,15 +346,57 @@ const CommunityDashboard: React.FC = () => {
           </div>
         )}
 
-        {rounds.length === 0 ? (
+        {/* Pestañas de filtrado */}
+        <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
+            <button
+              onClick={() => setActiveTab('active')}
+              style={{
+                flex: 1,
+                padding: '16px',
+                border: 'none',
+                backgroundColor: activeTab === 'active' ? '#1976d2' : 'transparent',
+                color: activeTab === 'active' ? 'white' : 'var(--text-primary)',
+                fontWeight: activeTab === 'active' ? 'bold' : 'normal',
+                fontSize: '16px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                borderBottom: activeTab === 'active' ? '3px solid #1976d2' : '3px solid transparent'
+              }}
+            >
+              📋 Activas ({activeCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('finished')}
+              style={{
+                flex: 1,
+                padding: '16px',
+                border: 'none',
+                backgroundColor: activeTab === 'finished' ? '#1976d2' : 'transparent',
+                color: activeTab === 'finished' ? 'white' : 'var(--text-primary)',
+                fontWeight: activeTab === 'finished' ? 'bold' : 'normal',
+                fontSize: '16px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                borderBottom: activeTab === 'finished' ? '3px solid #1976d2' : '3px solid transparent'
+              }}
+            >
+              ✅ Finalizadas ({finishedCount})
+            </button>
+          </div>
+        </div>
+
+        {filteredRounds.length === 0 ? (
           <div className="empty-state">
-            <p>No hay rondas todavía</p>
-            <p>Crea la primera ronda de apuestas</p>
+            <p>{activeTab === 'active' ? 'No hay rondas activas' : 'No hay rondas finalizadas'}</p>
+            {activeTab === 'active' && isAdmin && <p>Crea la primera ronda de apuestas</p>}
           </div>
         ) : (
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Rondas</h2>
-            {rounds.map((round) => (
+            <h2 style={{ marginTop: 0 }}>
+              {activeTab === 'active' ? 'Rondas Activas' : 'Rondas Finalizadas'}
+            </h2>
+            {filteredRounds.map((round) => (
               <div
                 key={round.id}
                 className="list-item"

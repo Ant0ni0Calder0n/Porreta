@@ -19,12 +19,17 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
 
   const playBoteSound = async () => {
     try {
-      //Intentar reproducir sonido
+      // Reproducir sonido
       const audio = new Audio('/Porreta/bote.mpeg');
       audio.volume = 0.8;
       await audio.play();
     } catch (err) {
-      console.log('No se pudo reproducir el sonido:', err); 
+      console.log('No se pudo reproducir el sonido:', err);
+    }
+    
+    // Vibrar el dispositivo (independientemente del sonido)
+    if (navigator.vibrate) {
+      navigator.vibrate([300, 100, 300, 100, 300]); // 💥 Patrón de vibración
     }
   };
 
@@ -55,8 +60,8 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       if (unseenRounds.length > 0) {
         setNewResults(unseenRounds);
         setShow(true);
-
-        // Reproducir sonido si hay BOTE
+        
+        // 🔊 Reproducir sonido si hay BOTE
         const hasBote = unseenRounds.some(round => round.winnerNick === 'BOTE');
         if (hasBote) {
           playBoteSound();
@@ -92,12 +97,13 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       zIndex: 1000
     }}>
       <div style={{
-        backgroundColor: 'white',
+        backgroundColor: 'var(--bg-secondary)',
+        color: 'var(--text-primary)',
         borderRadius: '8px',
         padding: '24px',
         maxWidth: '400px',
         width: '90%',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
       }}>
         <h2 style={{ marginTop: 0, marginBottom: '16px', color: '#1976d2' }}>
           🎉 ¡Resultados Publicados!
@@ -113,14 +119,14 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
             <div key={round.id} style={{
               padding: '16px',
               marginBottom: '12px',
-              backgroundColor: isBote ? '#fff3cd' : '#d4edda',
+              backgroundColor: isBote ? 'rgba(255, 193, 7, 0.2)' : 'rgba(76, 175, 80, 0.2)',
               borderRadius: '4px',
-              border: isBote ? '1px solid #ffc107' : '1px solid #28a745'
+              border: isBote ? '2px solid #ffc107' : '2px solid #4caf50'
             }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: 'var(--text-primary)' }}>
                 {round.name}
               </h3>
-              <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: isBote ? '#856404' : '#155724' }}>
+              <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: isBote ? '#ffc107' : '#4caf50' }}>
                 {isBote ? (
                   '💰¡¡¡¡ BOOOOTEEEE !!!!'
                 ) : isMultipleWinners ? (

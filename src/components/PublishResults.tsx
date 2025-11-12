@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Round, LiveResult, MatchStatus, MatchResult, Bet } from '../types';
@@ -199,7 +199,8 @@ const PublishResults: React.FC = () => {
         results,
         status: 'results_posted',
         winnerId,
-        winnerNick
+        winnerNick,
+        resultsPublishedAt: Timestamp.now()
       };
       
       // Eliminar liveResults (usar deleteField en lugar de null)

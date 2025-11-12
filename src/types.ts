@@ -57,6 +57,7 @@ export interface Round {
   winnerId?: string | null; // ID del ganador o null si es bote
   winnerNick?: string | null; // Nick del ganador o "BOTE"
   isVisible?: boolean; // Si es false, la ronda solo es visible para admins
+  resultsPublishedAt?: Timestamp; // Timestamp de cuando se publicaron los resultados oficiales
 }
 
 export interface MatchResult {
