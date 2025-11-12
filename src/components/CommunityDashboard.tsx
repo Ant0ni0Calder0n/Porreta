@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, Timestamp, limit, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Community } from '../types';
 import ResultsNotification from './ResultsNotification';
@@ -53,6 +53,14 @@ const CommunityDashboard: React.FC = () => {
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'finished'>('active');
+  
+  // Estados para lazy loading de rondas finalizadas
+  const [finishedRounds, setFinishedRounds] = useState<Round[]>([]);
+  const [lastFinishedDoc, setLastFinishedDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMoreFinished, setHasMoreFinished] = useState(true);
+  const [loadingMoreFinished, setLoadingMoreFinished] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
 
@@ -143,6 +151,137 @@ const CommunityDashboard: React.FC = () => {
     }
   };
 
+  // Cargar rondas finalizadas con paginación
+  const loadFinishedRounds = useCallback(async (loadMore = false) => {
+    if (!communityId || (loadMore && !hasMoreFinished) || loadingMoreFinished) return;
+
+    setLoadingMoreFinished(true);
+    
+    try {
+      const FINISHED_PAGE_SIZE = 10;
+      
+      // Query base: rondas finalizadas (results_posted) ordenadas por fecha de publicación descendente
+      let q = query(
+        collection(db, 'rounds'),
+        where('communityId', '==', communityId),
+        where('status', '==', 'results_posted'),
+        orderBy('resultsPublishedAt', 'desc'),
+        limit(FINISHED_PAGE_SIZE)
+      );
+
+      // Si es paginación, continuar desde el último documento
+      if (loadMore && lastFinishedDoc) {
+        q = query(
+          collection(db, 'rounds'),
+          where('communityId', '==', communityId),
+          where('status', '==', 'results_posted'),
+          orderBy('resultsPublishedAt', 'desc'),
+          startAfter(lastFinishedDoc),
+          limit(FINISHED_PAGE_SIZE)
+        );
+      }
+
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setHasMoreFinished(false);
+        setLoadingMoreFinished(false);
+        return;
+      }
+
+      const newRounds: Round[] = [];
+      querySnapshot.forEach((doc) => {
+        const round = { id: doc.id, ...doc.data() } as Round;
+        
+        // Filtrar solo las que tienen más de 7 días
+        if (round.resultsPublishedAt) {
+          const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+          if (daysSincePublished >= 7) {
+            newRounds.push(round);
+          }
+        } else {
+          // Rondas antiguas sin timestamp (backward compatibility)
+          newRounds.push(round);
+        }
+      });
+
+      // Filtrar rondas ocultas si el usuario NO es admin
+      const visibleRounds = isAdmin ? newRounds : newRounds.filter(round => round.isVisible !== false);
+
+      // Actualizar estado
+      if (loadMore) {
+        setFinishedRounds(prev => [...prev, ...visibleRounds]);
+      } else {
+        setFinishedRounds(visibleRounds);
+      }
+
+      // Guardar el último documento para paginación
+      const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+      setLastFinishedDoc(lastDoc);
+
+      // Si recibimos menos rondas que el límite, no hay más
+      setHasMoreFinished(querySnapshot.size === FINISHED_PAGE_SIZE);
+
+      // Cargar contador de apuestas para las nuevas rondas
+      const countsMap: { [roundId: string]: number } = { ...betsCount };
+      const userBetsMap: { [roundId: string]: boolean } = { ...userBets };
+      
+      for (const round of visibleRounds) {
+        // Solo cargar si no tenemos los datos ya
+        if (countsMap[round.id] === undefined) {
+          const betsQuery = query(
+            collection(db, 'bets'),
+            where('roundId', '==', round.id)
+          );
+          const betsSnapshot = await getDocs(betsQuery);
+          countsMap[round.id] = betsSnapshot.size;
+
+          const userHasBet = betsSnapshot.docs.some(doc => doc.data().userId === userData?.uid);
+          userBetsMap[round.id] = userHasBet;
+        }
+      }
+
+      setBetsCount(countsMap);
+      setUserBets(userBetsMap);
+
+    } catch (error) {
+      console.error('Error cargando rondas finalizadas:', error);
+    } finally {
+      setLoadingMoreFinished(false);
+    }
+  }, [communityId, lastFinishedDoc, hasMoreFinished, loadingMoreFinished, isAdmin, userData?.uid, betsCount, userBets]);
+
+  // Cargar rondas finalizadas cuando se cambia a esa pestaña
+  useEffect(() => {
+    if (activeTab === 'finished' && finishedRounds.length === 0 && !loading) {
+      loadFinishedRounds(false);
+    }
+  }, [activeTab, loading]);
+
+  // Intersection Observer para scroll infinito
+  useEffect(() => {
+    if (activeTab !== 'finished' || !hasMoreFinished) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMoreFinished) {
+          loadFinishedRounds(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [activeTab, hasMoreFinished, loadingMoreFinished, loadFinishedRounds]);
+
   const handleSaveDescription = async () => {
     if (!communityId || !isAdmin) return;
     
@@ -212,33 +351,22 @@ const CommunityDashboard: React.FC = () => {
   };
 
   // Filtrar rondas según la pestaña activa
-  const filteredRounds = rounds.filter(round => {
-    if (activeTab === 'active') {
-      // Activas: open, closed, o results_posted de hace menos de 7 días
-      if (round.status === 'open' || round.status === 'closed') {
-        return true;
-      }
-      
-      // Si tiene resultados publicados, verificar si hace menos de 7 días
-      if (round.status === 'results_posted' && round.resultsPublishedAt) {
-        const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-        return daysSincePublished < 7;
-      }
-      
-      return false;
-    } else {
-      // Finalizadas: results_posted de hace más de 7 días (o sin fecha = antiguas)
-      if (round.status === 'results_posted') {
-        if (!round.resultsPublishedAt) {
-          // Rondas antiguas sin timestamp (por compatibilidad)
+  const filteredRounds = activeTab === 'active' 
+    ? rounds.filter(round => {
+        // Activas: open, closed, o results_posted de hace menos de 7 días
+        if (round.status === 'open' || round.status === 'closed') {
           return true;
         }
-        const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-        return daysSincePublished >= 7;
-      }
-      return false;
-    }
-  });
+        
+        // Si tiene resultados publicados, verificar si hace menos de 7 días
+        if (round.status === 'results_posted' && round.resultsPublishedAt) {
+          const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
+          return daysSincePublished < 7;
+        }
+        
+        return false;
+      })
+    : finishedRounds; // Para finalizadas, usar el array con lazy loading
 
   // Calcular contadores para las pestañas
   const activeCount = rounds.filter(r => {
@@ -250,14 +378,8 @@ const CommunityDashboard: React.FC = () => {
     return false;
   }).length;
 
-  const finishedCount = rounds.filter(r => {
-    if (r.status === 'results_posted') {
-      if (!r.resultsPublishedAt) return true;
-      const daysSincePublished = (Date.now() - r.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-      return daysSincePublished >= 7;
-    }
-    return false;
-  }).length;
+  // Para finalizadas, mostrar el contador de lo cargado + indicador si hay más
+  const finishedCountDisplay = hasMoreFinished ? `${finishedRounds.length}+` : finishedRounds.length.toString();
 
   if (loading) {
     return <div className="loading">Cargando...</div>;
@@ -381,7 +503,7 @@ const CommunityDashboard: React.FC = () => {
                 borderBottom: activeTab === 'finished' ? '3px solid #1976d2' : '3px solid transparent'
               }}
             >
-              ✅ Finalizadas ({finishedCount})
+              ✅ Finalizadas ({finishedCountDisplay})
             </button>
           </div>
         </div>
@@ -446,6 +568,32 @@ const CommunityDashboard: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {/* Trigger para scroll infinito (solo en pestaña finalizadas) */}
+            {activeTab === 'finished' && hasMoreFinished && (
+              <div 
+                ref={loadMoreRef}
+                style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                {loadingMoreFinished && '⏳ Cargando más rondas...'}
+              </div>
+            )}
+
+            {/* Mensaje cuando no hay más rondas */}
+            {activeTab === 'finished' && !hasMoreFinished && finishedRounds.length > 0 && (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                fontSize: '14px'
+              }}>
+                ✓ No hay más rondas finalizadas
+              </div>
+            )}
           </div>
         )}
       </div>
