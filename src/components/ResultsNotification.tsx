@@ -17,6 +17,22 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
     checkForNewResults();
   }, [communityId, currentUser]);
 
+  const playBoteSound = async () => {
+    try {
+      //Intentar reproducir sonido
+      const audio = new Audio('/Porreta/bote.mpeg');
+      audio.volume = 0.8;
+      await audio.play();
+    } catch (err) {
+      console.log('No se pudo reproducir el sonido:', err); 
+    }
+
+    // Vibrar dispositivo si es posible
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 100, 100, 100]);
+    }
+  };
+
   const checkForNewResults = async () => {
     if (!currentUser || !communityId) return;
 
@@ -44,6 +60,12 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       if (unseenRounds.length > 0) {
         setNewResults(unseenRounds);
         setShow(true);
+
+        // Reproducir sonido si hay BOTE
+        const hasBote = unseenRounds.some(round => round.winnerNick === 'BOTE');
+        if (hasBote) {
+          playBoteSound();
+        }
       }
     } catch (error) {
       console.error('Error verificando resultados:', error);
