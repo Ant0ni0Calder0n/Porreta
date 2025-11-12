@@ -47,6 +47,7 @@ const CommunityDashboard: React.FC = () => {
   const [community, setCommunity] = useState<Community | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [betsCount, setBetsCount] = useState<{ [roundId: string]: number }>({});
+  const [userBets, setUserBets] = useState<{ [roundId: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   const [editingDescription, setEditingDescription] = useState(false);
   const [description, setDescription] = useState('');
@@ -107,17 +108,33 @@ const CommunityDashboard: React.FC = () => {
 
       setRounds(roundsData);
 
-      // Cargar contador de apuestas por cada ronda
+      // Cargar contador de apuestas por cada ronda y verifica apuestas del usuario
       const countsMap: { [roundId: string]: number } = {};
+      const userBetsMap: { [roundId: string]: boolean } = {};
+
       for (const round of roundsData) {
+        // Contar total de apuestas
         const betsQuery = query(
           collection(db, 'bets'),
           where('roundId', '==', round.id)
         );
         const betsSnapshot = await getDocs(betsQuery);
         countsMap[round.id] = betsSnapshot.size;
+
+        // Verificar si el usuario actual ha apostado
+        if (userData?.uid) {
+          const userBetQuery = query(
+            collection(db, 'bets'),
+            where('roundId', '==', round.id),
+            where('userId', '==', userData.uid)
+          );
+          const userBetSnapshot = await getDocs(userBetQuery);
+          userBetsMap[round.id] = !userBetSnapshot.empty;
+        }
       }
+
       setBetsCount(countsMap);
+      setUserBets(userBetsMap);
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -158,6 +175,39 @@ const CommunityDashboard: React.FC = () => {
       return <span className="badge badge-closed">Expirada</span>;
     }
     return <span className="badge badge-open">Abierta</span>;
+  };
+
+  // Función para obtener el indicador de si el usuario ya apostó
+  const getBetStatusBadge = (roundId: string) => {
+    const hasUserBet = userBets[roundId];
+
+    if (hasUserBet) {
+      return (
+        <span style={{
+          fontSize: '11px',
+          padding: '4px 8px',
+          borderRadius: '12px',
+          backgroundColor: '#4caf50',
+          color: 'white',
+          fontWeight: '500'
+        }}>
+          ✅ Apuesta realizada
+        </span>
+      );
+    }
+
+    return (
+      <span style={{
+        fontSize: '11px',
+        padding: '4px 8px',
+        borderRadius: '12px',
+        backgroundColor: '#ff9800',
+        color: 'white',
+        fontWeight: '500'
+      }}>
+        ⚠️ Pendiente
+      </span>
+    );
   };
 
   if (loading) {
@@ -267,7 +317,7 @@ const CommunityDashboard: React.FC = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                       <h3 style={{ margin: 0, fontSize: '18px' }}>
                         {round.name}
                       </h3>
@@ -294,9 +344,12 @@ const CommunityDashboard: React.FC = () => {
                         );
                       })()}
                     </p>
-                    <p style={{ margin: '4px 0 0 0', color: '#007bff', fontSize: '13px', fontWeight: '500' }}>
-                      {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
-                    </p>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, color: '#007bff', fontSize: '13px', fontWeight: '500' }}>
+                        {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
+                      </p>
+                      {getBetStatusBadge(round.id)}
+                    </div>
                   </div>
                   {getStatusBadge(round)}
                 </div>
