@@ -150,39 +150,40 @@ const PublishResults: React.FC = () => {
 
       let winnerId: string | null = null;
       let winnerNick: string | null = null;
-      let maxPoints = 0;
       let winners: Bet[] = [];
 
-      // Calcular puntos para cada apuesta
+      // Calcular ganador - SOLO GANA QUIEN ACIERTA TODO
       bets.forEach((bet) => {
-        let points = 0;
+        let correctPredictions = 0;
         bet.predictions.forEach((pred, idx) => {
           const result = results[idx];
           
           if (pred.type === 'exact' && result.type === 'exact') {
             if (pred.homeGoals === result.homeGoals && pred.awayGoals === result.awayGoals) {
-              points += 1;
+              correctPredictions += 1;
             }
           } else if (pred.type === '1X2' && result.type === '1X2') {
             if (pred.pick === result.result) {
-              points += 1;
+              correctPredictions += 1;
             }
           }
         });
 
-        if (points > maxPoints) {
-          maxPoints = points;
-          winners = [bet];
-        } else if (points === maxPoints && points > 0) {
+        console.log('📊 Apuesta evaluada:', { userNick: bet.userNick, correctPredictions, totalMatches: bet.predictions.length });
+
+        // Solo gana si acertó TODOS los partidos
+        if (correctPredictions === bet.predictions.length) {
           winners.push(bet);
         }
       });
 
+      console.log('🏆 Resultado final:', {winnersCount: winners.length });
+
       // Determinar ganador
-      if (winners.length === 1 && maxPoints > 0) {
+      if (winners.length === 1) {
         winnerId = winners[0].userId;
         winnerNick = winners[0].userNick;
-      } else if (winners.length > 1 && maxPoints > 0) {
+      } else if (winners.length > 1 ) {
         winnerId = null;
         winnerNick = winners.map(w => w.userNick).join(', ');
       } else {
@@ -190,7 +191,7 @@ const PublishResults: React.FC = () => {
         winnerNick = 'BOTE';
       }
 
-      console.log('🏆 Ganador calculado:', { winnerId, winnerNick, maxPoints });
+      console.log('🏆 Ganador calculado:', { winnerId, winnerNick });
 
       // Actualizar la ronda con los resultados
       const updateData: any = {
