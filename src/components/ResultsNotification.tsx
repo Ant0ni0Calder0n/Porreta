@@ -26,11 +26,6 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
     } catch (err) {
       console.log('No se pudo reproducir el sonido:', err); 
     }
-
-    // Vibrar dispositivo si es posible
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 100, 100, 100]);
-    }
   };
 
   const checkForNewResults = async () => {
