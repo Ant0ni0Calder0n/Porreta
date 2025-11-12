@@ -233,8 +233,10 @@ const CommunityDashboard: React.FC = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', fontSize: '8px' }}>
-                      {round.name}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <h3 style={{ margin: 0, fontSize: '18px' }}>
+                        {round.name}
+                      </h3>
                       {isAdmin && round.isVisible === false && (
                         <span style={{
                           fontSize: '12px',
@@ -247,7 +249,7 @@ const CommunityDashboard: React.FC = () => {
                           🔒 Oculta
                         </span>
                       )}
-                    </h3>
+                    </div>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                       Límite: {new Date(round.deadline.toDate()).toLocaleString()}
                     </p>

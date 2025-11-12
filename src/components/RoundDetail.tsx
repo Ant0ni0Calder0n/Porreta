@@ -201,9 +201,9 @@ const RoundDetail: React.FC = () => {
         )}
 
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>Partidos</h2>
+          <h2 style={{ marginTop: 0, textAlign: 'center' }}>{round.name}</h2>
           {round.matches.map((match, idx) => (
-            <div key={idx} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: idx < 2 ? '1px solid #eee' : 'none' }}>
+            <div key={idx} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: idx < round.matches.length - 1 ? '1px solid #eee' : 'none' }}>
               <p style={{ margin: '0 0 4px 0', fontWeight: '500' }}>
                 {match.homeTeam} vs {match.awayTeam}
               </p>
