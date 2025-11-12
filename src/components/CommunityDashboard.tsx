@@ -1,10 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Community } from '../types';
 import ResultsNotification from './ResultsNotification';
+
+// Función para formatear el tiempo restante hasta el deadline
+const formatTiemeRemaining = (deadline: Timestamp): { text: string; color: string; icon: string } => {
+  const now = new Date();
+  const deadlineDate = deadline.toDate();
+  const diffMs = deadlineDate.getTime() - now.getTime();
+
+  // Ya cerrado
+  if (diffMs <= 0) {
+    return { text: 'Cerrada', color: '#999', icon: '🔒' };
+  }
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  // Menos de 1 hora
+  if (diffMinutes < 60) {
+    return { text: `¡Última hora! (${diffMinutes} min)`, color: '#d32f2f', icon: '⚠️' };
+  }
+
+  // Menos de 24 horas
+  if (diffHours < 24) {
+    return { text: `Quedan ${diffHours} horas`, color: '#f57c00', icon: '⏰' };
+  }
+  
+  // Más de 1 día
+  const remainingHours = diffHours % 24;
+  if (diffDays === 1) {
+    return { text: `Queda 1 día ${remainingHours}h`, color: '#388e3c', icon: '⏰' };
+  }
+
+  return { text: `Quedan ${diffDays} días ${remainingHours}h`, color: '#388e3c', icon: '⏰' };
+};
 
 const CommunityDashboard: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
@@ -251,7 +285,14 @@ const CommunityDashboard: React.FC = () => {
                       )}
                     </div>
                     <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
-                      Límite: {new Date(round.deadline.toDate()).toLocaleString()}
+                      {(() => {
+                        const timeInfo = formatTiemeRemaining(round.deadline);
+                        return (
+                          <span style={{ color: timeInfo.color, fontWeight: '500' }}>
+                            {timeInfo.icon} {timeInfo.text}
+                          </span>
+                        );
+                      })()}
                     </p>
                     <p style={{ margin: '4px 0 0 0', color: '#007bff', fontSize: '13px', fontWeight: '500' }}>
                       {betsCount[round.id] || 0} {(betsCount[round.id] || 0) === 1 ? 'apuesta' : 'apuestas'}
