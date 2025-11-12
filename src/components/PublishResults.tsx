@@ -207,7 +207,7 @@ const PublishResults: React.FC = () => {
       await updateDoc(doc(db, 'rounds', roundId), updateData);
 
       alert('🏆 ¡Resultados oficiales publicados!');
-      navigate(`/community/${communityId}/round/${roundId}`);
+      navigate(`/community/${communityId}/round/${roundId}`, { replace: true });
     } catch (err: any) {
       console.error('Error publicando resultados:', err);
       throw err;
@@ -235,7 +235,7 @@ const PublishResults: React.FC = () => {
     <div>
       <div className="header">
         <h1>Actualizar Resultados</h1>
-        <button onClick={() => navigate(`/community/${communityId}/round/${roundId}`)}>
+        <button onClick={() => navigate(-1)}>
           ← Volver
         </button>
       </div>

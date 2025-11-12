@@ -169,6 +169,7 @@ const CreateBet: React.FC = () => {
 
       // Navegar de vuelta con state para forzar recarga
       navigate(`/community/${communityId}/round/${roundId}`, { 
+        replace: true,
         state: { refresh: true, timestamp: Date.now() }
       });
     } catch (err: any) {
@@ -190,7 +191,7 @@ const CreateBet: React.FC = () => {
     <div>
       <div className="header">
         <h1>{existingBet ? 'Modificar Apuesta' : 'Hacer Apuesta'}</h1>
-        <button onClick={() => navigate(`/community/${communityId}/round/${roundId}`)}>Volver</button>
+        <button onClick={() => navigate(-1)}>Volver</button>
       </div>
 
       <div className="container">

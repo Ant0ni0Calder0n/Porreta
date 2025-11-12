@@ -143,7 +143,7 @@ const CommunityDashboard: React.FC = () => {
         <div>
           <h1>{community.name}</h1>
         </div>
-        <button onClick={() => navigate('/communities')}>Volver</button>
+        <button onClick={() => navigate(-1)}>Volver</button>
       </div>
 
       <div className="container">

@@ -161,7 +161,7 @@ const RoundDetail: React.FC = () => {
         <h1>Detalle Ronda</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => loadData()}>🔄 Recargar</button>
-          <button onClick={() => navigate(`/community/${communityId}`)}>Volver</button>
+          <button onClick={() => navigate(-1)}>Volver</button>
         </div>
       </div>
 

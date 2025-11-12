@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   // Redirigir automáticamente si ya está autenticado
   useEffect(() => {
     if (!authLoading && currentUser) {
-      navigate('/communities');
+      navigate('/communities', { replace: true });
     }
   }, [currentUser, authLoading, navigate]);
 
@@ -30,7 +30,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/communities');
+      navigate('/communities', { replace: true });
     } catch (err: any) {
       setError('Error al iniciar sesión: ' + (err.message || 'Error desconocido'));
     } finally {

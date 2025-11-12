@@ -15,7 +15,7 @@ const Signup: React.FC = () => {
   // Redirigir automáticamente si ya está autenticado
   useEffect(() => {
     if (!authLoading && currentUser) {
-      navigate('/communities');
+      navigate('/communities', { replace: true });
     }
   }, [currentUser, authLoading, navigate]);
 
@@ -42,7 +42,7 @@ const Signup: React.FC = () => {
 
     try {
       await signup(email, password, nick);
-      navigate('/communities');
+      navigate('/communities', { replace: true });
     } catch (err: any) {
       setError('Error al crear cuenta: ' + (err.message || 'Error desconocido'));
     } finally {

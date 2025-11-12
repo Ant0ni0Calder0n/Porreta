@@ -74,7 +74,7 @@ const CreateRound: React.FC = () => {
       console.log('📍 CommunityId:', communityId);
 
       // Navegar de vuelta sin replace
-      navigate(`/community/${communityId}`);
+      navigate(`/community/${communityId}`, { replace: true });
     } catch (err: any) {
       setError('Error creando ronda: ' + (err.message || 'Error desconocido'));
     } finally {
@@ -86,7 +86,7 @@ const CreateRound: React.FC = () => {
     <div>
       <div className="header">
         <h1>Crear Ronda</h1>
-        <button onClick={() => navigate(`/community/${communityId}`)}>Volver</button>
+        <button onClick={() => navigate(-1)}>Volver</button>
       </div>
 
       <div className="container">
