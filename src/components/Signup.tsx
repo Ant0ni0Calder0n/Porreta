@@ -44,7 +44,18 @@ const Signup: React.FC = () => {
       await signup(email, password, nick);
       navigate('/communities', { replace: true });
     } catch (err: any) {
-      setError('Error al crear cuenta: ' + (err.message || 'Error desconocido'));
+      // Manejo especifico de errores
+      if (err.message.includes('El nick ya está en uso')) {
+        setError('❌ El nick ya está en uso. Por favor, elige otro.');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('El email ya stá registrado');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('El email no es válido');
+      } else if (err.code === 'auth/weak-password') {
+        setError('La contraseña es demasiado débil');
+      } else {
+        setError('Error al crear cuenta: ' + (err.message || 'Error desconocido'));
+      }
     } finally {
       setLoading(false);
     }
