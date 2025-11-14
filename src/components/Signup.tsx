@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { GlobalConfig } from '../types';
 
 const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,18 +12,44 @@ const Signup: React.FC = () => {
   const [nick, setNick] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrationDisabled, setRegistrationDisabled] = useState(false);
+  const [checkingConfig, setCheckingConfig] = useState(true);
   const { signup, currentUser, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Verificar si el registro está habilitado
+  useEffect(() => {
+    const checkRegistrationStatus = async () => {
+      try {
+        const configDoc = await getDoc(doc(db, 'config', 'global'));
+        if (configDoc.exists()) {
+          const config = configDoc.data() as GlobalConfig;
+          setRegistrationDisabled(!config.allowUserRegistration);
+        }
+      } catch (error) {
+        console.error('Error al verificar configuración:', error);
+      } finally {
+        setCheckingConfig(false);
+      }
+    };
+    
+    checkRegistrationStatus();
+  }, []);
+
   // Redirigir automáticamente si ya está autenticado
   useEffect(() => {
-    if (!authLoading && currentUser) {
+    if (!authLoading && !checkingConfig && currentUser) {
       navigate('/communities', { replace: true });
     }
-  }, [currentUser, authLoading, navigate]);
+  }, [currentUser, authLoading, checkingConfig, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (registrationDisabled) {
+      setError('El registro de nuevos usuarios está temporalmente deshabilitado');
+      return;
+    }
     
     if (!email || !password || !nick) {
       setError('Completa todos los campos');
@@ -50,11 +79,41 @@ const Signup: React.FC = () => {
     }
   };
 
-  // Mostrar pantalla de carga mientras verifica autenticación
-  if (authLoading) {
+  // Mostrar pantalla de carga mientras verifica autenticación o configuración
+  if (authLoading || checkingConfig) {
     return (
       <div className="container" style={{ textAlign: 'center', marginTop: '100px' }}>
         <p>Cargando...</p>
+      </div>
+    );
+  }
+
+  // Mostrar mensaje si el registro está deshabilitado
+  if (registrationDisabled) {
+    return (
+      <div className="container">
+        <div className="card" style={{ marginTop: '40px', textAlign: 'center' }}>
+          <h1 style={{ color: '#1976d2', marginTop: 0 }}>Porreta</h1>
+          <div style={{ 
+            padding: '30px', 
+            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+            borderRadius: '8px',
+            marginTop: '20px'
+          }}>
+            <h2 style={{ color: '#d32f2f', marginTop: 0 }}>🚫 Registro Deshabilitado</h2>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+              El registro de nuevos usuarios está temporalmente deshabilitado.<br/>
+              Por favor, contacta con el administrador para obtener acceso.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/', { replace: true })}
+            className="button"
+            style={{ marginTop: '20px' }}
+          >
+            Volver al Login
+          </button>
+        </div>
       </div>
     );
   }

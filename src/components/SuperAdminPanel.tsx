@@ -10,7 +10,9 @@ import {
   writeBatch,
   orderBy,
   where,
-  Timestamp
+  Timestamp,
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +32,11 @@ const SuperAdminPanel: React.FC = () => {
   const [editRoundName, setEditRoundName] = useState('');
   const [editRoundDeadline, setEditRoundDeadline] = useState('');
   const [editRoundMatches, setEditRoundMatches] = useState<any[]>([]);
+  
+  // Estados para configuración global
+  const [allowUserRegistration, setAllowUserRegistration] = useState(true);
+  const [allowCommunityCreation, setAllowCommunityCreation] = useState(true);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     // Redirigir si no es super admin
@@ -38,7 +45,41 @@ const SuperAdminPanel: React.FC = () => {
       return;
     }
     loadCommunities();
+    loadGlobalConfig();
   }, [isSuperAdmin, navigate]);
+
+  const loadGlobalConfig = async () => {
+    try {
+      const configDoc = await getDoc(doc(db, 'config', 'global'));
+      if (configDoc.exists()) {
+        const data = configDoc.data();
+        setAllowUserRegistration(data.allowUserRegistration ?? true);
+        setAllowCommunityCreation(data.allowCommunityCreation ?? true);
+      }
+    } catch (error) {
+      console.error('Error cargando configuración:', error);
+    }
+  };
+
+  const saveGlobalConfig = async (field: 'allowUserRegistration' | 'allowCommunityCreation', value: boolean) => {
+    setSavingConfig(true);
+    try {
+      await setDoc(doc(db, 'config', 'global'), {
+        [field]: value
+      }, { merge: true });
+      
+      if (field === 'allowUserRegistration') {
+        setAllowUserRegistration(value);
+      } else {
+        setAllowCommunityCreation(value);
+      }
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+      alert('Error al guardar la configuración');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   const loadCommunities = async () => {
     try {
@@ -285,6 +326,97 @@ const SuperAdminPanel: React.FC = () => {
       </div>
 
       <div className="container">
+
+        {/* Configuración Global */}
+        <div className="card" style={{ marginBottom: '24px', backgroundColor: 'rgba(255, 152, 0, 0.1)', borderLeft: '4px solid #ff9800' }}>
+          <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-primary)' }}>
+            ⚙️ Configuración Global de Acceso
+          </h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Checkbox para registro de usuarios */}
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              cursor: 'pointer',
+              padding: '12px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              transition: 'all 0.2s ease'
+            }}>
+              <input
+                type="checkbox"
+                checked={allowUserRegistration}
+                onChange={(e) => saveGlobalConfig('allowUserRegistration', e.target.checked)}
+                disabled={savingConfig}
+                style={{ 
+                  width: '20px', 
+                  height: '20px',
+                  cursor: 'pointer'
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  👤 Permitir registro de nuevos usuarios
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  {allowUserRegistration 
+                    ? '✅ Los usuarios pueden crear nuevas cuentas' 
+                    : '🚫 Registro de usuarios deshabilitado'}
+                </div>
+              </div>
+            </label>
+
+            {/* Checkbox para creación de comunidades */}
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              cursor: 'pointer',
+              padding: '12px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              transition: 'all 0.2s ease'
+            }}>
+              <input
+                type="checkbox"
+                checked={allowCommunityCreation}
+                onChange={(e) => saveGlobalConfig('allowCommunityCreation', e.target.checked)}
+                disabled={savingConfig}
+                style={{ 
+                  width: '20px', 
+                  height: '20px',
+                  cursor: 'pointer'
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  🏘️ Permitir creación de nuevas comunidades
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  {allowCommunityCreation 
+                    ? '✅ Los usuarios pueden crear comunidades' 
+                    : '🚫 Creación de comunidades deshabilitada'}
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '12px', 
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: 'var(--text-secondary)'
+          }}>
+            💡 <strong>Nota:</strong> Estos ajustes controlan el acceso a nivel global de la aplicación. 
+            Úsalos para mantener la app privada y controlar quién puede registrarse o crear comunidades.
+          </div>
+        </div>
 
       {/* Modal de edición */}
       {editingCommunity && (

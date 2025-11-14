@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Community } from '../types';
+import { Community, GlobalConfig } from '../types';
 
 const Communities: React.FC = () => {
   const { userData, logout, isSuperAdmin } = useAuth();
@@ -14,10 +14,24 @@ const Communities: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [communityCreationDisabled, setCommunityCreationDisabled] = useState(false);
 
   useEffect(() => {
     loadCommunities();
+    checkCommunityCreationStatus();
   }, [userData]);
+
+  const checkCommunityCreationStatus = async () => {
+    try {
+      const configDoc = await getDoc(doc(db, 'config', 'global'));
+      if (configDoc.exists()) {
+        const config = configDoc.data() as GlobalConfig;
+        setCommunityCreationDisabled(!config.allowCommunityCreation);
+      }
+    } catch (error) {
+      console.error('Error al verificar configuración:', error);
+    }
+  };
 
   const loadCommunities = async () => {
     if (!userData) return;
@@ -104,7 +118,20 @@ const Communities: React.FC = () => {
 
       <div className="container">
         <div className="card">
-          <button className="button" onClick={() => setShowCreateModal(true)}>
+          <button 
+            className="button" 
+            onClick={() => {
+              if (communityCreationDisabled) {
+                alert('La creación de nuevas comunidades está temporalmente deshabilitada por el administrador');
+              } else {
+                setShowCreateModal(true);
+              }
+            }}
+            style={{ 
+              opacity: communityCreationDisabled ? 0.6 : 1,
+              cursor: communityCreationDisabled ? 'not-allowed' : 'pointer'
+            }}
+          >
             Crear Nueva Comunidad
           </button>
           <button className="button button-secondary" onClick={() => setShowJoinModal(true)}>

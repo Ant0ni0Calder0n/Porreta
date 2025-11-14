@@ -68,5 +68,13 @@ service cloud.firestore {
       allow update: if isUser(resource.data.userId);
       allow delete: if isSuperAdmin();
     }
+
+    // Reglas para configuración global
+    match /config/{configId} {
+      // Cualquiera puede leer la configuración (necesario para signup y communities)
+      allow read: if true;
+      // Solo super admin puede escribir
+      allow write: if isSuperAdmin();
+    }
   }
 }

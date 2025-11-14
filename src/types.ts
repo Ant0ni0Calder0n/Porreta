@@ -85,3 +85,8 @@ export interface Bet {
   predictions: Prediction[];
   duplicateWarningShown: boolean;
 }
+
+export interface GlobalConfig {
+  allowUserRegistration: boolean;
+  allowCommunityCreation: boolean;
+}
