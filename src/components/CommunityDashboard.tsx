@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, Tim
 import { db } from '../firebase';
 import { Round, Community } from '../types';
 import ResultsNotification from './ResultsNotification';
+import CustomAlert from './CustomAlert';
 
 // Función para formatear el tiempo restante hasta el deadline
 const formatTimeRemaining = (deadline: Timestamp): { text: string; color: string; icon: string } => {
@@ -53,6 +54,7 @@ const CommunityDashboard: React.FC = () => {
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'finished'>('active');
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   
   // Estados para lazy loading de rondas finalizadas
   const [finishedRounds, setFinishedRounds] = useState<Round[]>([]);
@@ -297,8 +299,8 @@ const CommunityDashboard: React.FC = () => {
       
       setEditingDescription(false);
     } catch (error) {
-      console.error('Error guardando descripción:', error);
-      alert('Error al guardar la descripción');
+      console.error('Error al guardar descripción:', error);
+      setAlertMessage({ message: 'Error al guardar la descripción', type: 'error' });
     } finally {
       setSavingDescription(false);
     }
@@ -597,6 +599,15 @@ const CommunityDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
+        />
+      )}
     </div>
   );
 };

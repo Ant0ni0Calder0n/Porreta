@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Bet } from '../types';
+import CustomAlert from './CustomAlert';
 
 const RoundDetail: React.FC = () => {
   const { communityId, roundId } = useParams<{ communityId: string; roundId: string }>();
@@ -13,6 +14,7 @@ const RoundDetail: React.FC = () => {
   const [round, setRound] = useState<Round | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
 
   useEffect(() => {
@@ -180,14 +182,17 @@ const RoundDetail: React.FC = () => {
                   onChange={async (e) => {
                     const newVisibility = e.target.checked;
                     try {
-                      await updateDoc(doc(db, 'rounds', roundId!), {
+                      await updateDoc(doc(db, 'rounds', round.id), {
                         isVisible: newVisibility
                       });
                       setRound({ ...round, isVisible: newVisibility });
-                      alert(newVisibility ? 'Ronda visible para todos los usuarios' : 'Ronda oculta (solo visible para admins)');
+                      setAlertMessage({ 
+                        message: newVisibility ? 'Ronda visible para todos los usuarios' : 'Ronda oculta (solo visible para admins)',
+                        type: 'success'
+                      });
                     } catch (error) {
-                      console.error('Error al actualizar visibilidad:', error);
-                      alert('Error al cambiar la visibilidad');
+                      console.error('Error cambiando visibilidad:', error);
+                      setAlertMessage({ message: 'Error al cambiar la visibilidad', type: 'error' });
                     }
                   }}
                   style={{ marginRight: '8px', width: '18px', height: '18px' }}
@@ -343,6 +348,15 @@ const RoundDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
+        />
+      )}
     </div>
   );
 };

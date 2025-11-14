@@ -17,6 +17,8 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Community, Round } from '../types';
+import CustomAlert from './CustomAlert';
+import CustomConfirm from './CustomConfirm';
 
 const SuperAdminPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +39,10 @@ const SuperAdminPanel: React.FC = () => {
   const [allowUserRegistration, setAllowUserRegistration] = useState(true);
   const [allowCommunityCreation, setAllowCommunityCreation] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
+  
+  // Estados para alertas y confirmaciones
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     // Redirigir si no es super admin
@@ -75,7 +81,7 @@ const SuperAdminPanel: React.FC = () => {
       }
     } catch (error) {
       console.error('Error guardando configuración:', error);
-      alert('Error al guardar la configuración');
+      setAlertMessage({ message: 'Error al guardar la configuración', type: 'error' });
     } finally {
       setSavingConfig(false);
     }
@@ -93,7 +99,7 @@ const SuperAdminPanel: React.FC = () => {
       setCommunities(communitiesData);
     } catch (error) {
       console.error('Error al cargar comunidades:', error);
-      alert('Error al cargar comunidades');
+      setAlertMessage({ message: 'Error al cargar comunidades', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -116,8 +122,8 @@ const SuperAdminPanel: React.FC = () => {
       setRounds(communityRounds);
       setSelectedCommunity(communityId);
     } catch (error) {
-      console.error('Error al cargar rondas:', error);
-      alert('Error al cargar rondas');
+      console.error('Error cargando rondas:', error);
+      setAlertMessage({ message: 'Error al cargar rondas', type: 'error' });
     }
   };
 
@@ -131,7 +137,7 @@ const SuperAdminPanel: React.FC = () => {
     if (!editingCommunity) return;
 
     if (!editName.trim()) {
-      alert('El nombre no puede estar vacío');
+      setAlertMessage({ message: 'El nombre no puede estar vacío', type: 'warning' });
       return;
     }
 
@@ -142,12 +148,12 @@ const SuperAdminPanel: React.FC = () => {
         description: editDescription.trim()
       });
       
-      alert('Comunidad actualizada correctamente');
+      setAlertMessage({ message: 'Comunidad actualizada correctamente', type: 'success' });
       setEditingCommunity(null);
       loadCommunities();
     } catch (error) {
-      console.error('Error al actualizar comunidad:', error);
-      alert('Error al actualizar la comunidad');
+      console.error('Error actualizando comunidad:', error);
+      setAlertMessage({ message: 'Error al actualizar la comunidad', type: 'error' });
     }
   };
 
@@ -169,12 +175,12 @@ const SuperAdminPanel: React.FC = () => {
     if (!editingRound) return;
 
     if (!editRoundName.trim()) {
-      alert('El nombre no puede estar vacío');
+      setAlertMessage({ message: 'El nombre no puede estar vacío', type: 'warning' });
       return;
     }
 
     if (!editRoundDeadline) {
-      alert('La fecha límite es obligatoria');
+      setAlertMessage({ message: 'La fecha límite es obligatoria', type: 'warning' });
       return;
     }
 
@@ -185,29 +191,34 @@ const SuperAdminPanel: React.FC = () => {
         deadline: Timestamp.fromDate(new Date(editRoundDeadline)),
         matches: editRoundMatches
       });
-      
-      alert('Ronda actualizada correctamente');
+
+      setAlertMessage({ message: 'Ronda actualizada correctamente', type: 'success' });
       setEditingRound(null);
       if (selectedCommunity) {
         loadRoundsForCommunity(selectedCommunity);
       }
     } catch (error) {
-      console.error('Error al actualizar ronda:', error);
-      alert('Error al actualizar la ronda');
+      console.error('Error actualizando ronda:', error);
+      setAlertMessage({ message: 'Error al actualizar la ronda', type: 'error' });
     }
   };
 
   const handleDeleteCommunity = async (community: Community) => {
-    const confirmDelete = window.confirm(
-      `¿Estás seguro de que quieres eliminar la comunidad "${community.name}"?\n\n` +
-      `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
-      `- La comunidad\n` +
-      `- Todas sus rondas\n` +
-      `- Todas las apuestas de esas rondas\n\n` +
-      `Esta acción NO se puede deshacer.`
-    );
+    setConfirmDialog({
+      message: `¿Estás seguro de que quieres eliminar la comunidad "${community.name}"?\n\n` +
+        `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
+        `- La comunidad\n` +
+        `- Todas sus rondas\n` +
+        `- Todas las apuestas de esas rondas\n\n` +
+        `Esta acción NO se puede deshacer.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        await executeCommunityDelete(community);
+      }
+    });
+  };
 
-    if (!confirmDelete) return;
+  const executeCommunityDelete = async (community: Community) => {
 
     try {
       let totalBetsDeleted = 0;
@@ -246,7 +257,10 @@ const SuperAdminPanel: React.FC = () => {
       // 3. Eliminar la comunidad
       await deleteDoc(doc(db, 'communities', community.id));
       
-      alert(`✅ Comunidad eliminada correctamente.\n\nRondas eliminadas: ${roundsSnapshot.size}\nApuestas eliminadas: ${totalBetsDeleted}`);
+      setAlertMessage({ 
+        message: `Comunidad eliminada correctamente.\n\nRondas eliminadas: ${roundsSnapshot.size}\nApuestas eliminadas: ${totalBetsDeleted}`,
+        type: 'success' 
+      });
       loadCommunities();
       if (selectedCommunity === community.id) {
         setSelectedCommunity(null);
@@ -254,20 +268,28 @@ const SuperAdminPanel: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error al eliminar comunidad:', error);
-      alert('❌ Error al eliminar la comunidad:\n\n' + (error.message || error.toString()));
+      setAlertMessage({ 
+        message: 'Error al eliminar la comunidad:\n\n' + (error.message || error.toString()),
+        type: 'error' 
+      });
     }
   };
 
   const handleDeleteRound = async (round: Round) => {
-    const confirmDelete = window.confirm(
-      `¿Estás seguro de que quieres eliminar la ronda "${round.name}"?\n\n` +
-      `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
-      `- La ronda\n` +
-      `- Todas las apuestas de esta ronda\n\n` +
-      `Esta acción NO se puede deshacer.`
-    );
+    setConfirmDialog({
+      message: `¿Estás seguro de que quieres eliminar la ronda "${round.name}"?\n\n` +
+        `ADVERTENCIA: Esto eliminará PERMANENTEMENTE:\n` +
+        `- La ronda\n` +
+        `- Todas las apuestas de esta ronda\n\n` +
+        `Esta acción NO se puede deshacer.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        await executeRoundDelete(round);
+      }
+    });
+  };
 
-    if (!confirmDelete) return;
+  const executeRoundDelete = async (round: Round) => {
 
     try {
       // 1. Eliminar todas las apuestas de esta ronda
@@ -292,13 +314,19 @@ const SuperAdminPanel: React.FC = () => {
       // 2. Eliminar la ronda
       await deleteDoc(doc(db, 'rounds', round.id));
       
-      alert(`✅ Ronda eliminada correctamente.\n\nApuestas eliminadas: ${betsSnapshot.size}`);
+      setAlertMessage({ 
+        message: `Ronda eliminada correctamente.\n\nApuestas eliminadas: ${betsSnapshot.size}`,
+        type: 'success' 
+      });
       if (selectedCommunity) {
         loadRoundsForCommunity(selectedCommunity);
       }
     } catch (error: any) {
       console.error('Error al eliminar ronda:', error);
-      alert('❌ Error al eliminar la ronda:\n\n' + (error.message || error.toString()));
+      setAlertMessage({ 
+        message: 'Error al eliminar la ronda:\n\n' + (error.message || error.toString()),
+        type: 'error' 
+      });
     }
   };
 
@@ -722,6 +750,20 @@ const SuperAdminPanel: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
+                        onClick={() => navigate(`/community/${round.communityId}/round/${round.id}/results`)}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        Editar Resultados
+                      </button>
+                      <button
                         onClick={() => handleEditRound(round)}
                         style={{
                           padding: '8px 16px',
@@ -756,6 +798,35 @@ const SuperAdminPanel: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
+        />
+      )}
+
+      {/* Confirmación personalizada */}
+      {confirmDialog && (
+        <CustomConfirm
+          message={confirmDialog.message}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
+        />
       )}
       </div>
     </div>

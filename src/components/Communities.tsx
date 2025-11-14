@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Community, GlobalConfig } from '../types';
+import CustomAlert from './CustomAlert';
 
 const Communities: React.FC = () => {
   const { userData, logout, isSuperAdmin } = useAuth();
@@ -15,6 +16,7 @@ const Communities: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [communityCreationDisabled, setCommunityCreationDisabled] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
 
   useEffect(() => {
     loadCommunities();
@@ -122,7 +124,10 @@ const Communities: React.FC = () => {
             className="button" 
             onClick={() => {
               if (communityCreationDisabled) {
-                alert('La creación de nuevas comunidades está temporalmente deshabilitada por el administrador');
+                setAlertMessage({ 
+                  message: 'La creación de nuevas comunidades está temporalmente deshabilitada por el administrador', 
+                  type: 'warning' 
+                });
               } else {
                 setShowCreateModal(true);
               }
@@ -176,6 +181,15 @@ const Communities: React.FC = () => {
         <JoinCommunityModal
           onClose={() => setShowJoinModal(false)}
           onJoined={loadCommunities}
+        />
+      )}
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
         />
       )}
     </div>

@@ -4,15 +4,17 @@ import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp } 
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Round, LiveResult, MatchStatus, MatchResult, Bet } from '../types';
+import CustomAlert from './CustomAlert';
 
 const PublishResults: React.FC = () => {
   const { communityId, roundId } = useParams<{ communityId: string; roundId: string }>();
   const navigate = useNavigate();
-  const { userData } = useAuth();
+  const { userData, isSuperAdmin } = useAuth();
   const [round, setRound] = useState<Round | null>(null);
   const [liveResults, setLiveResults] = useState<LiveResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
 
   useEffect(() => {
     loadRound();
@@ -44,8 +46,8 @@ const PublishResults: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error al cargar ronda:', error);
-      alert('Error al cargar la ronda');
+      console.error('Error al cargar la ronda:', error);
+      setAlertMessage({ message: 'Error al cargar la ronda', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -74,12 +76,18 @@ const PublishResults: React.FC = () => {
       if (lr.status !== 'pending') {
         if (lr.type === 'exact') {
           if (lr.homeGoals === undefined || lr.awayGoals === undefined) {
-            alert(`El partido ${i + 1} está marcado como "${lr.status}" pero no tiene goles definidos`);
+            setAlertMessage({ 
+              message: `El partido ${i + 1} está marcado como "${lr.status}" pero no tiene goles definidos`,
+              type: 'warning'
+            });
             return;
           }
         } else if (lr.type === '1X2') {
           if (!lr.result) {
-            alert(`El partido ${i + 1} está marcado como "${lr.status}" pero no tiene resultado 1X2 definido`);
+            setAlertMessage({ 
+              message: `El partido ${i + 1} está marcado como "${lr.status}" pero no tiene resultado 1X2 definido`,
+              type: 'warning'
+            });
             return;
           }
         }
@@ -111,12 +119,12 @@ const PublishResults: React.FC = () => {
         await updateDoc(roundRef, {
           liveResults: cleanedLiveResults
         });
-        alert('✅ Resultados actualizados correctamente');
-        navigate(`/community/${communityId}/round/${roundId}`);
+        setAlertMessage({ message: 'Resultados actualizados correctamente', type: 'success' });
+        setTimeout(() => navigate(`/community/${communityId}/round/${roundId}`), 1500);
       }
     } catch (error) {
-      console.error('Error al guardar:', error);
-      alert('❌ Error al guardar los resultados');
+      console.error('Error guardando resultados:', error);
+      setAlertMessage({ message: 'Error al guardar los resultados', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -208,8 +216,8 @@ const PublishResults: React.FC = () => {
 
       await updateDoc(doc(db, 'rounds', roundId), updateData);
 
-      alert('🏆 ¡Resultados oficiales publicados!');
-      navigate(`/community/${communityId}/round/${roundId}`, { replace: true });
+      setAlertMessage({ message: '🏆 ¡Resultados oficiales publicados!', type: 'success' });
+      setTimeout(() => navigate(`/community/${communityId}/round/${roundId}`, { replace: true }), 1500);
     } catch (err: any) {
       console.error('Error publicando resultados:', err);
       throw err;
@@ -229,7 +237,7 @@ const PublishResults: React.FC = () => {
   }
 
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
-  if (!isAdmin) {
+  if (!isAdmin && !isSuperAdmin) {
     return <div style={{ padding: '20px', textAlign: 'center' }}>No tienes permisos de administrador</div>;
   }
 
@@ -307,7 +315,9 @@ const PublishResults: React.FC = () => {
                     fontSize: '16px',
                     width: '100%',
                     borderRadius: '4px',
-                    border: '1px solid #ccc'
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)'
                   }}
                 >
                   <option value="pending">⏳ Pendiente (sin resultado)</option>
@@ -334,7 +344,9 @@ const PublishResults: React.FC = () => {
                             fontSize: '18px',
                             width: '100%',
                             borderRadius: '4px',
-                            border: '1px solid #ccc'
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-primary)',
+                            color: 'var(--text-primary)'
                           }}
                           placeholder="0"
                         />
@@ -354,7 +366,9 @@ const PublishResults: React.FC = () => {
                             fontSize: '18px',
                             width: '100%',
                             borderRadius: '4px',
-                            border: '1px solid #ccc'
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-primary)',
+                            color: 'var(--text-primary)'
                           }}
                           placeholder="0"
                         />
@@ -375,9 +389,9 @@ const PublishResults: React.FC = () => {
                               padding: '15px',
                               fontSize: '18px',
                               fontWeight: 'bold',
-                              backgroundColor: lr.result === option ? '#4CAF50' : '#f0f0f0',
-                              color: lr.result === option ? 'white' : 'black',
-                              border: 'none',
+                              backgroundColor: lr.result === option ? '#4CAF50' : 'var(--bg-secondary)',
+                              color: lr.result === option ? 'white' : 'var(--text-primary)',
+                              border: `1px solid ${lr.result === option ? '#4CAF50' : 'var(--border-color)'}`,
                               borderRadius: '4px',
                               cursor: 'pointer'
                             }}
@@ -412,6 +426,15 @@ const PublishResults: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Alerta personalizada */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage.message}
+          type={alertMessage.type}
+          onClose={() => setAlertMessage(null)}
+        />
+      )}
     </div>
   );
 };
