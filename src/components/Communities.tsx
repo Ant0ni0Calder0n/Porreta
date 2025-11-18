@@ -331,6 +331,13 @@ const JoinCommunityModal: React.FC<JoinCommunityModalProps> = ({ onClose, onJoin
       const communityDoc = querySnapshot.docs[0];
       const community = communityDoc.data() as Community;
 
+      // Verificar si el usuario ya es miembro
+      if (userData.communities[communityDoc.id]) {
+        setError('Ya eres miembro de esta comunidad');
+        setLoading(false);
+        return;
+      }
+      
       // Verificar contraseña (hash simple)
       const passwordHash = btoa(password);
       if (community.passwordHash !== passwordHash) {

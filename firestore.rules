@@ -31,9 +31,9 @@ service cloud.firestore {
     
     // Reglas para usuarios
     match /users/{userId} {
-      allow read: if isUser(userId);
+      allow read: if isUser(userId) || isSuperAdmin();
       allow create: if isUser(userId);
-      allow update: if isUser(userId);
+      allow update: if isUser(userId) || isSuperAdmin();
       allow delete: if false;
     }
     

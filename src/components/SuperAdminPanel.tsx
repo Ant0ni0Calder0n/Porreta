@@ -12,7 +12,8 @@ import {
   where,
   Timestamp,
   getDoc,
-  setDoc
+  setDoc,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -222,6 +223,7 @@ const SuperAdminPanel: React.FC = () => {
 
     try {
       let totalBetsDeleted = 0;
+      let totalUsersUpdated = 0;
       
       // 1. Buscar todas las rondas de esta comunidad
       const roundsQuery = query(collection(db, 'rounds'), where('communityId', '==', community.id));
@@ -254,11 +256,41 @@ const SuperAdminPanel: React.FC = () => {
         await deleteDoc(doc(db, 'rounds', roundDoc.id));
       }
       
-      // 3. Eliminar la comunidad
+      // 3. Eliminar referencias de la comunidad en usuarios
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const usersToUpdate: string[] = [];
+
+      // Identificar qué usuarios tienen esta comunidad
+      usersSnapshot.docs.forEach(userDoc => {
+        const userData = userDoc.data();
+        if (userData.communities && userData.communities[community.id]) {
+          usersToUpdate.push(userDoc.id);
+        }
+      });
+
+      console.log(`Eliminando referencias de ${usersToUpdate.length} usuarios...`);
+
+      // Actualizar usuarios en batches de 500
+      for (let i = 0; i < usersToUpdate.length; i += 500) {
+        const batch = writeBatch(db);
+        const chunk = usersToUpdate.slice(i, i + 500);
+
+        chunk.forEach(userId => {
+          const userRef = doc(db, 'users', userId);
+          batch.update(userRef, {
+            [`communities.${community.id}`]: deleteField()
+          });
+        });
+
+        await batch.commit();
+      }
+
+      totalUsersUpdated = usersToUpdate.length;
+      // 4. Finalmente, eliminar la comunidad
       await deleteDoc(doc(db, 'communities', community.id));
       
       setAlertMessage({ 
-        message: `Comunidad eliminada correctamente.\n\nRondas eliminadas: ${roundsSnapshot.size}\nApuestas eliminadas: ${totalBetsDeleted}`,
+        message: `Comunidad eliminada correctamente.\n\nRondas eliminadas: ${roundsSnapshot.size}\nApuestas eliminadas: ${totalBetsDeleted}\nUsuarios actualizados: ${totalUsersUpdated}`,
         type: 'success' 
       });
       loadCommunities();
@@ -481,7 +513,16 @@ const SuperAdminPanel: React.FC = () => {
               />
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setEditingCommunity(null)} style={{ padding: '10px 20px' }}>
+              <button 
+              onClick={() => setEditingCommunity(null)} 
+              style={{ 
+                padding: '10px 20px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer'
+                }}>
                 Cancelar
               </button>
               <button 
@@ -598,9 +639,10 @@ const SuperAdminPanel: React.FC = () => {
                 onClick={() => setEditingRound(null)} 
                 style={{ 
                   padding: '10px 20px',
-                  border: '1px solid #ddd',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '4px',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
                   cursor: 'pointer'
                 }}
               >

@@ -49,7 +49,9 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
         className="modal" 
         onClick={(e) => e.stopPropagation()}
         style={{ 
-          maxWidth: '400px',
+          maxWidth: '500px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
           animation: 'scaleIn 0.3s ease-out'
         }}
       >
