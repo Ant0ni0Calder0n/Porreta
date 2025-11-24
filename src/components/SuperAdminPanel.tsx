@@ -765,7 +765,7 @@ const SuperAdminPanel: React.FC = () => {
                     padding: '15px'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div style={{ flex: 1 }}>
                       <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{round.name}</h3>
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
@@ -790,17 +790,19 @@ const SuperAdminPanel: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => navigate(`/community/${round.communityId}/round/${round.id}/results`)}
                         style={{
-                          padding: '8px 16px',
+                          padding: '8px 12px',
                           backgroundColor: '#4CAF50',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          fontSize: '13px'
+                          fontSize: '12px',
+                          whiteSpace: 'nowrap',
+                          flex: '1 1 auto'
                         }}
                       >
                         Editar Resultados
@@ -808,13 +810,15 @@ const SuperAdminPanel: React.FC = () => {
                       <button
                         onClick={() => handleEditRound(round)}
                         style={{
-                          padding: '8px 16px',
+                          padding: '8px 12px',
                           backgroundColor: '#2196F3',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          fontSize: '13px'
+                          fontSize: '12px',
+                          whiteSpace: 'nowrap',
+                          flex: '1 1 auto'
                         }}
                       >
                         Editar Ronda
@@ -822,13 +826,15 @@ const SuperAdminPanel: React.FC = () => {
                       <button
                         onClick={() => handleDeleteRound(round)}
                         style={{
-                          padding: '8px 16px',
+                          padding: '8px 12px',
                           backgroundColor: '#f44336',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          fontSize: '13px'
+                          fontSize: '12px',
+                          whiteSpace: 'nowrap',
+                          flex: '1 1 auto'
                         }}
                       >
                         Eliminar Ronda
