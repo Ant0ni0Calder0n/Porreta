@@ -97,21 +97,35 @@ const RoundDetail: React.FC = () => {
       const prediction = bet.predictions[index];
       
       if (liveResult.type === 'exact') {
-        // Para resultado exacto: solo eliminar si es IMPOSIBLE que se cumpla
+        // Para resultado exacto: verificar si el partido tiene resultado definido
         if (liveResult.homeGoals !== undefined && liveResult.awayGoals !== undefined) {
-          // Verificar si coincide exactamente (suma puntos)
-          if (prediction.homeGoals === liveResult.homeGoals && 
-              prediction.awayGoals === liveResult.awayGoals) {
-            points++;
-          } 
-          // Solo marcar como eliminada si es IMPOSIBLE cumplirse:
-          // - Los goles actuales del local superan los predichos, O
-          // - Los goles actuales del visitante superan los predichos
-          else if ((prediction.homeGoals !== undefined && liveResult.homeGoals > prediction.homeGoals) || 
-                   (prediction.awayGoals !== undefined && liveResult.awayGoals > prediction.awayGoals)) {
-            hasDefinitiveFailure = true;
+          
+          // Si el partido está FINALIZADO, debe coincidir exactamente
+          if (liveResult.status === 'final') {
+            if (prediction.homeGoals === liveResult.homeGoals &&
+                prediction.awayGoals === liveResult.awayGoals) {
+              points++;
+            } else {
+              //No coincide con el resultado final -> apuesta eliminada
+              hasDefinitiveFailure = true;
+            }
           }
-          // Si aún no supera, la apuesta sigue viva (puede alcanzar el resultado predicho)
+          // Si el partido está LIVE, verificar si ya es IMPOSIBLE acertar
+          else if (liveResult.status === 'live') {
+            // Verificar si coincide exactamente (suma puntos)
+            if (prediction.homeGoals === liveResult.homeGoals && 
+                prediction.awayGoals === liveResult.awayGoals) {
+              points++;
+            } 
+            // Solo marcar como eliminada si es IMPOSIBLE cumplirse:
+            // - Los goles actuales del local superan los predichos, O
+            // - Los goles actuales del visitante superan los predichos
+            else if ((prediction.homeGoals !== undefined && liveResult.homeGoals > prediction.homeGoals) || 
+                    (prediction.awayGoals !== undefined && liveResult.awayGoals > prediction.awayGoals)) {
+              hasDefinitiveFailure = true;
+            }
+            // Si aún no supera, la apuesta sigue viva (puede alcanzar el resultado predicho)
+          }
         }
       } else if (liveResult.type === '1X2') {
         // Para 1X2: solo contar puntos si coincide, pero siempre viva hasta que termine
