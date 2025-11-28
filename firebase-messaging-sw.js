@@ -1,45 +1,39 @@
-importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js");
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+// Configuración Firebase (se actualizará con tus valores reales)
 firebase.initializeApp({
-  apiKey: "AIzaSyAeugvkxFv7pk21juKWCeAMpsG2w-pGwzo",
-  authDomain: "porreta-app.firebaseapp.com",
-  projectId: "porreta-app",
-  storageBucket: "porreta-app.firebasestorage.app",
-  messagingSenderId: "377909387939",
-  appId: "1:377909387939:web:1a7c43647046f4667dd516"
+    apiKey: "AIzaSyAeugvkxFv7pk21juKWCeAMpsG2w-pGwzo",
+    authDomain: "porreta-app.firebaseapp.com",
+    projectId: "porreta-app",
+    storageBucket: "porreta-app.firebasestorage.app",
+    messagingSenderId: "377909387939",
+    appId: "1:377909387939:web:1a7c43647046f4667dd516"
 });
-const s = firebase.messaging();
-s.onBackgroundMessage((i) => {
-  var o, e, t;
-  console.log("Mensaje recibido en background:", i);
-  const n = ((o = i.notification) == null ? void 0 : o.title) || "Porreta", a = {
-    body: ((e = i.notification) == null ? void 0 : e.body) || "",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
-    tag: ((t = i.data) == null ? void 0 : t.roundId) || "default",
-    data: i.data
+
+const messaging = firebase.messaging();
+
+// Manejo de notificaciones en background
+messaging.onBackgroundMessage((payload) => {
+  console.log('Mensaje recibido en background:', payload);
+  
+  const notificationTitle = payload.notification?.title || 'Porreta';
+  const notificationOptions = {
+    body: payload.notification?.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: payload.data?.roundId || 'default',
+    data: payload.data
   };
-  return self.registration.showNotification(n, a);
+
+  return self.registration.showNotification(notificationTitle, notificationOptions);
 });
-self.addEventListener("notificationclick", (i) => {
-  var o;
-  console.log("Notificación clickeada:", i.notification.data), i.notification.close();
-  const n = ((o = i.notification.data) == null ? void 0 : o.url) || "/", a = new URL(n, self.location.origin).href;
-  i.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: !0 }).then((e) => {
-      console.log("Ventanas abiertas:", e.length);
-      for (let t = 0; t < e.length; t++) {
-        const c = e[t];
-        if (c.url.includes("/Porreta/") && (c.postMessage({
-          type: "NOTIFICATION_CLICK",
-          url: n
-        }), "focus" in c))
-          return c.focus();
-      }
-      if (clients.openWindow)
-        return console.log("Abriendo nueva ventana en:", a), clients.openWindow(a);
-    }).catch((e) => {
-      console.error("Error al manejar el click de la notificación:", e);
-    })
+
+// Click en notificación
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  event.waitUntil(
+    clients.openWindow('/')
   );
 });

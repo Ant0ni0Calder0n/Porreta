@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/Porreta/firebase-messaging-sw.js', { scope: '/Porreta/' })})}
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/Porreta/sw.js', { scope: '/Porreta/' })})}
