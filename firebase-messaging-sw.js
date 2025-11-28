@@ -32,8 +32,24 @@ messaging.onBackgroundMessage((payload) => {
 // Click en notificación
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  //Obtener la URL de la notificación
+  const urlToOpen = event.notification.data?.url || '/';
+  const fullUrl = new URL(urlToOpen, self.location.origin).href;
   
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((windowClients) => {
+      // Si hay una ventana abierta, enfocarla y navegar
+      for (let client of windowClients) {
+        if (client.url === fullUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Si no hay una ventana abierta, abrir una nueva
+      if (clients.openWindow) {
+        return clients.openWindow(fullUrl);
+      }
+    })
   );
 });
