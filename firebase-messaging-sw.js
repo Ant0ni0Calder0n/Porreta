@@ -1,69 +1,44 @@
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-
-// Configuración Firebase (se actualizará con tus valores reales)
+importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js");
 firebase.initializeApp({
-    apiKey: "AIzaSyAeugvkxFv7pk21juKWCeAMpsG2w-pGwzo",
-    authDomain: "porreta-app.firebaseapp.com",
-    projectId: "porreta-app",
-    storageBucket: "porreta-app.firebasestorage.app",
-    messagingSenderId: "377909387939",
-    appId: "1:377909387939:web:1a7c43647046f4667dd516"
+  apiKey: "AIzaSyAeugvkxFv7pk21juKWCeAMpsG2w-pGwzo",
+  authDomain: "porreta-app.firebaseapp.com",
+  projectId: "porreta-app",
+  storageBucket: "porreta-app.firebasestorage.app",
+  messagingSenderId: "377909387939",
+  appId: "1:377909387939:web:1a7c43647046f4667dd516"
 });
-
-const messaging = firebase.messaging();
-
-// Manejo de notificaciones en background
-messaging.onBackgroundMessage((payload) => {
-  console.log('Mensaje recibido en background:', payload);
-  
-  const notificationTitle = payload.notification?.title || 'Porreta';
-  const notificationOptions = {
-    body: payload.notification?.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: payload.data?.roundId || 'default',
-    data: payload.data
+const c = firebase.messaging();
+c.onBackgroundMessage((i) => {
+  var o, e, t;
+  console.log("Mensaje recibido en background:", i);
+  const n = ((o = i.notification) == null ? void 0 : o.title) || "Porreta", a = {
+    body: ((e = i.notification) == null ? void 0 : e.body) || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: ((t = i.data) == null ? void 0 : t.roundId) || "default",
+    data: i.data
   };
-
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(n, a);
 });
-
-// Click en notificación
-self.addEventListener('notificationclick', (event) => {
-  console.log('Notificación clickeada:', event.notification.data);
-  event.notification.close();
-
-  //Obtener la URL de la notificación
-  const urlToOpen = event.notification.data?.url || '/';
-  const fullUrl = new URL(urlToOpen, self.location.origin).href;
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-    .then((windowClients) => {
-      console.log('Ventanas abiertas:', windowClients.length);
-      // Si hay una ventana abierta
-      if (windowClients.length > 0) {
-        const client = windowClients[0];
-        // Enviar mensaje a la app para que navegue
-        client.postMessage({
-          type: 'NOTIFICATION_CLICK',
-          url: urlToOpen
-        });
-        // Enfocar la ventana
-        if ('focus' in client)
-          {
-            return client.focus();
-          }
+self.addEventListener("notificationclick", (i) => {
+  var o;
+  console.log("Notificación clickeada:", i.notification.data), i.notification.close();
+  const n = ((o = i.notification.data) == null ? void 0 : o.url) || "/", a = new URL(n, self.location.origin).href;
+  i.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: !0 }).then((e) => {
+      if (console.log("Ventanas abiertas:", e.length), e.length > 0) {
+        const t = e[0];
+        if (t.postMessage({
+          type: "NOTIFICATION_CLICK",
+          url: n
+        }), "focus" in t)
+          return t.focus();
       }
-      // Si no hay una ventana abierta, abrir una nueva
-      if (clients.openWindow) {
-        console.log('Abriendo nueva ventana en URL:', fullUrl);
-        return clients.openWindow(fullUrl);
-      }
-    })
-    .catch(err => {
-      console.error('Error al manejar el click en la notificación:', err);
+      if (clients.openWindow)
+        return console.log("Abriendo nueva ventana en URL:", a), clients.openWindow(a);
+    }).catch((e) => {
+      console.error("Error al manejar el click en la notificación:", e);
     })
   );
 });
