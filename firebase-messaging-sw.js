@@ -31,6 +31,7 @@ messaging.onBackgroundMessage((payload) => {
 
 // Click en notificación
 self.addEventListener('notificationclick', (event) => {
+  console.log('Notificación clickeada:', event.notification.data);
   event.notification.close();
 
   //Obtener la URL de la notificación
@@ -40,11 +41,16 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then((windowClients) => {
-      // Si hay una ventana abierta, enfocarla y navegar
-      for (let client of windowClients) {
-        if (client.url === fullUrl && 'focus' in client) {
-          return client.focus();
-        }
+      // Si hay una ventana abierta
+      if (windowClients.length > 0) {
+        const client = windowClients[0];
+        // Enviar mensaje a la app para que navegue
+        client.postMessage({
+          type: 'NOTIFICATION_CLICK',
+          url: urlToOpen
+        });
+        // Enfocar la ventana
+        return client.focus();
       }
       // Si no hay una ventana abierta, abrir una nueva
       if (clients.openWindow) {
