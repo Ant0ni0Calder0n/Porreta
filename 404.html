@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Porreta</title>
-        <script type="text/javascript">
-            //Guarda la ruta actual para redirigir después
-            var pathSegmentsToKeep = 1;
-            var l = window.location;
-            l.replace(
-                l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-                l.pathname.split('/').slice(0, -pathSegmentsToKeep).join('/') + '/?/' +
-                l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-                (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-                l.hash
-            );
-        </script>
-    </head>
+  <head>
+    <meta charset="utf-8">
+    <title>Porreta</title>
+    <script type="text/javascript">
+      // Redirigir a index.html con la ruta original
+      var l = window.location;
+      var path = l.pathname.replace(/^\/Porreta/, '');
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        '/Porreta/index.html?/' + path +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body>
+  </body>
 </html>
