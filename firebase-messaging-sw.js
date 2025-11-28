@@ -41,6 +41,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then((windowClients) => {
+      console.log('Ventanas abiertas:', windowClients.length);
       // Si hay una ventana abierta
       if (windowClients.length > 0) {
         const client = windowClients[0];
@@ -50,12 +51,19 @@ self.addEventListener('notificationclick', (event) => {
           url: urlToOpen
         });
         // Enfocar la ventana
-        return client.focus();
+        if ('focus' in client)
+          {
+            return client.focus();
+          }
       }
       // Si no hay una ventana abierta, abrir una nueva
       if (clients.openWindow) {
+        console.log('Abriendo nueva ventana en URL:', fullUrl);
         return clients.openWindow(fullUrl);
       }
+    })
+    .catch(err => {
+      console.error('Error al manejar el click en la notificación:', err);
     })
   );
 });
