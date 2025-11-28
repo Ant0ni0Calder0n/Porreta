@@ -8,8 +8,8 @@ firebase.initializeApp({
   messagingSenderId: "377909387939",
   appId: "1:377909387939:web:1a7c43647046f4667dd516"
 });
-const c = firebase.messaging();
-c.onBackgroundMessage((i) => {
+const s = firebase.messaging();
+s.onBackgroundMessage((i) => {
   var o, e, t;
   console.log("Mensaje recibido en background:", i);
   const n = ((o = i.notification) == null ? void 0 : o.title) || "Porreta", a = {
@@ -27,18 +27,19 @@ self.addEventListener("notificationclick", (i) => {
   const n = ((o = i.notification.data) == null ? void 0 : o.url) || "/", a = new URL(n, self.location.origin).href;
   i.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: !0 }).then((e) => {
-      if (console.log("Ventanas abiertas:", e.length), e.length > 0) {
-        const t = e[0];
-        if (t.postMessage({
+      console.log("Ventanas abiertas:", e.length);
+      for (let t = 0; t < e.length; t++) {
+        const c = e[t];
+        if (c.url.includes("/Porreta/") && (c.postMessage({
           type: "NOTIFICATION_CLICK",
           url: n
-        }), "focus" in t)
-          return t.focus();
+        }), "focus" in c))
+          return c.focus();
       }
       if (clients.openWindow)
-        return console.log("Abriendo nueva ventana en URL:", a), clients.openWindow(a);
+        return console.log("Abriendo nueva ventana en:", a), clients.openWindow(a);
     }).catch((e) => {
-      console.error("Error al manejar el click en la notificación:", e);
+      console.error("Error al manejar el click de la notificación:", e);
     })
   );
 });
