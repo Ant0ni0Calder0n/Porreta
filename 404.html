@@ -4,22 +4,22 @@
     <meta charset="utf-8">
     <title>Porreta - Apuestas</title>
     <script type="text/javascript">
-      // GitHub Pages SPA redirect
-      // Guarda la ruta actual y redirige a index.html
-      var pathSegmentsToKeep = 1; // Para /Porreta/
-      
+      // GitHub Pages SPA redirect - versión simplificada
       var l = window.location;
-      var pathName = l.pathname;
+      var path = l.pathname.replace('/Porreta/', '');
       
-      // Extraer la ruta después de /Porreta/
-      var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
-      redirect += pathName.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/';
-      redirect += '?p=' + pathName.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~');
-      redirect += (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '');
-      redirect += l.hash;
-      
-      console.log('404 redirect:', redirect);
-      window.location.replace(redirect);
+      if (path && path !== 'index.html') {
+        var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
+        redirect += '/Porreta/index.html?redirect=' + encodeURIComponent(path);
+        redirect += (l.search ? '&' + l.search.slice(1) : '');
+        redirect += l.hash;
+        
+        console.log('404 redirigiendo a:', redirect);
+        window.location.replace(redirect);
+      } else {
+        // Si estamos en /Porreta/ o /Porreta/index.html, ir al inicio
+        window.location.replace('/Porreta/');
+      }
     </script>
   </head>
   <body>
