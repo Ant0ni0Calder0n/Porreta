@@ -31,9 +31,28 @@ messaging.onBackgroundMessage((payload) => {
 
 // Click en notificación
 self.addEventListener('notificationclick', (event) => {
+  console.log('Click en notificación:', event.notification.data);
   event.notification.close();
   
+  const communityId = event.notification.data?.communityId;
+  const url = communityId 
+    ? `/Porreta/community/${communityId}` 
+    : '/Porreta/';
+  
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si ya hay una ventana abierta, enfócala y navega
+      for (const client of clientList) {
+        if (client.url.includes('/Porreta') && 'focus' in client) {
+          client.focus();
+          client.postMessage({ type: 'NAVIGATE', url: url });
+          return;
+        }
+      }
+      // Si no hay ventana abierta, abre una nueva
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
   );
 });
