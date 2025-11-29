@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Porreta - Apuestas</title>
+    <script type="text/javascript">
+      // GitHub Pages SPA redirect
+      // Guarda la ruta actual y redirige a index.html
+      var pathSegmentsToKeep = 1; // Para /Porreta/
+      
+      var l = window.location;
+      var pathName = l.pathname;
+      
+      // Extraer la ruta después de /Porreta/
+      var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
+      redirect += pathName.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/';
+      redirect += '?p=' + pathName.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~');
+      redirect += (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '');
+      redirect += l.hash;
+      
+      console.log('404 redirect:', redirect);
+      window.location.replace(redirect);
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

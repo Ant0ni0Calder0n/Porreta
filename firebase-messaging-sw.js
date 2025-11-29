@@ -15,13 +15,21 @@ const messaging = firebase.messaging();
 
 // Manejo de notificaciones en background
 messaging.onBackgroundMessage((payload) => {
-  console.log('Mensaje recibido en background:', payload);
+  console.log('📩 Mensaje recibido en background:', payload);
   
-  const notificationTitle = payload.notification?.title || 'Porreta';
+  // No mostrar notificación aquí si payload.notification existe
+  // porque Firebase ya la muestra automáticamente
+  if (payload.notification) {
+    console.log('✅ Notificación automática de Firebase');
+    return; // Firebase muestra la notificación automáticamente
+  }
+  
+  // Solo si es un mensaje de solo datos (sin notification)
+  const notificationTitle = payload.data?.title || 'Porreta';
   const notificationOptions = {
-    body: payload.notification?.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    body: payload.data?.body || '',
+    icon: '/Porreta/icon-192.png',
+    badge: '/Porreta/icon-192.png',
     tag: payload.data?.roundId || 'default',
     data: payload.data
   };
@@ -31,28 +39,29 @@ messaging.onBackgroundMessage((payload) => {
 
 // Click en notificación
 self.addEventListener('notificationclick', (event) => {
-  console.log('Click en notificación:', event.notification.data);
+  console.log('🔔 Click en notificación:', event.notification.data);
   event.notification.close();
   
   const communityId = event.notification.data?.communityId;
-  const url = communityId 
+  const path = communityId 
     ? `/Porreta/community/${communityId}` 
     : '/Porreta/';
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Si ya hay una ventana abierta, enfócala y navega
+      // Si ya hay una ventana abierta de la app, enfócala y navega
       for (const client of clientList) {
-        if (client.url.includes('/Porreta') && 'focus' in client) {
-          client.focus();
-          client.postMessage({ type: 'NAVIGATE', url: url });
-          return;
+        if (client.url.includes('/Porreta')) {
+          console.log('✅ Ventana encontrada, enfocando y navegando a:', path);
+          // Usar navigate con URL completa del cliente
+          const baseUrl = new URL(client.url).origin;
+          return client.focus().then(() => client.navigate(baseUrl + path));
         }
       }
-      // Si no hay ventana abierta, abre una nueva
-      if (clients.openWindow) {
-        return clients.openWindow(url);
-      }
+      // Si no hay ventana abierta, abre una nueva con URL completa
+      console.log('🆕 Abriendo nueva ventana en:', path);
+      const fullUrl = self.location.origin + path;
+      return clients.openWindow(fullUrl);
     })
   );
 });
