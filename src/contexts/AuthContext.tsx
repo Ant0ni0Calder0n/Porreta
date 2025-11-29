@@ -7,8 +7,10 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, messaging } from '../firebase';
 import { User } from '../types';
+import { requestNotificationPermission } from '../utils/notifications';
+import { onMessage } from 'firebase/messaging';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -42,6 +44,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (userDoc.exists()) {
         setUserData({ uid: user.uid, ...userDoc.data() } as User);
       }
+
+      // Solicitar permisos de notificación después de cargar datos
+      setTimeout(() => {
+        requestNotificationPermission(user.uid).catch(err => {
+          console.error('Error solicitando permisos de notificación:', err);
+        });
+      }, 1000); // Esperar 1 segundo para que el usuario vea la interfaz primero
     } catch (error) {
       console.error('Error cargando datos usuario:', error);
     }
@@ -66,6 +75,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return unsubscribe;
   }, []);
+
+  // Listener para notificaciones en foreground (cuando la app está abierta)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('📬 Notificación recibida con app abierta:', payload);
+      
+      // Mostrar notificación del navegador
+      if (payload.notification) {
+        const notificationTitle = payload.notification.title || 'Porreta';
+        const notificationOptions = {
+          body: payload.notification.body || '',
+          icon: '/Porreta/icon-192.png',
+          badge: '/Porreta/icon-192.png',
+          data: payload.data,
+          tag: payload.data?.roundId || 'default',
+        };
+
+        // Pedir permiso si no lo tenemos
+        if (Notification.permission === 'granted') {
+          new Notification(notificationTitle, notificationOptions);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const signup = async (email: string, password: string, nick: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);

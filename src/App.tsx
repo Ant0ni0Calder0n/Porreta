@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './components/Login';
@@ -22,11 +22,33 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return currentUser ? <>{children}</> : <Navigate to="/" />;
 };
 
+// Listener para navegación desde notificaciones
+const NotificationNavigationListener: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'NOTIFICATION_CLICK') {
+          const communityId = event.data.communityId;
+          if (communityId) {
+            console.log('🔔 Navegando a comunidad desde notificación:', communityId);
+            navigate(`/community/${communityId}`);
+          }
+        }
+      });
+    }
+  }, [navigate]);
+
+  return null;
+};
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter basename="/Porreta">
+          <NotificationNavigationListener />
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
