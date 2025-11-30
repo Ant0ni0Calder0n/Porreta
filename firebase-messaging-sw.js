@@ -43,31 +43,53 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
   const communityId = event.notification.data?.communityId;
-  const path = communityId 
+  const targetPath = communityId 
     ? `/Porreta/community/${communityId}` 
     : '/Porreta/';
   
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Buscar ventana existente
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then((clientList) => {
+      console.log('🔍 Buscando clientes de la PWA... encontrados:', clientList.length);
+      
+      // Buscar si la PWA ya está abierta (incluso en segundo plano)
       for (const client of clientList) {
-        if (client.url.includes('/Porreta')) {
-          console.log('✅ Ventana encontrada, enfocando');
-          const baseUrl = new URL(client.url).origin;
+        const clientUrl = new URL(client.url);
+        console.log('  - Cliente:', clientUrl.href);
+        
+        // Verificar si es nuestra PWA (por pathname que incluye /Porreta)
+        if (clientUrl.pathname.startsWith('/Porreta')) {
+          console.log('✅ PWA encontrada, enfocando y navegando');
+          const fullUrl = `${clientUrl.origin}${targetPath}`;
+          // Enfocar primero
           return client.focus().then(() => {
-            // Navegar usando postMessage en lugar de navigate
-            client.postMessage({
-              type: 'NOTIFICATION_CLICK',
-              communityId: communityId
-            });
-            return client;
+            // Intentar navegar
+            if (client.navigate) {
+              console.log('  → Navegando a:', fullUrl);
+              return client.navigate(fullUrl);
+            } else {
+              // Si navigate no está disponible, usar postMessage
+              console.log('  → Usando postMessage para navegar');
+              client.postMessage({
+                type: 'NOTIFICATION_CLICK',
+                communityId: communityId
+              });
+              return client;
+            }
           });
         }
       }
-      // Si no hay ventana abierta, abrir nueva
-      console.log('🆕 Abriendo nueva ventana');
-      const fullUrl = self.location.origin + path;
+      
+      // Si no hay PWA abierta, abrir una nueva ventana
+      // Esto abrirá la PWA instalada si existe, o el navegador si no
+      console.log('🆕 PWA cerrada, abriendo...');
+      const fullUrl = `${self.location.origin}${targetPath}`;
+      console.log('  → URL:', fullUrl);
       return clients.openWindow(fullUrl);
+    }).catch(err => {
+      console.error('❌ Error manejando click:', err);
     })
   );
 });
