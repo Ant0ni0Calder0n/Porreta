@@ -37,37 +37,8 @@ messaging.onBackgroundMessage((payload) => {
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Click en notificación
+// Click en notificación - solo cerrarla
 self.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Click en notificación:', event.notification.data);
+  console.log('🔔 Click en notificación - cerrando');
   event.notification.close();
-  
-  const communityId = event.notification.data?.communityId;
-  const path = communityId 
-    ? `/Porreta/community/${communityId}` 
-    : '/Porreta/';
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Buscar ventana existente
-      for (const client of clientList) {
-        if (client.url.includes('/Porreta')) {
-          console.log('✅ Ventana encontrada, enfocando');
-          const baseUrl = new URL(client.url).origin;
-          return client.focus().then(() => {
-            // Navegar usando postMessage en lugar de navigate
-            client.postMessage({
-              type: 'NOTIFICATION_CLICK',
-              communityId: communityId
-            });
-            return client;
-          });
-        }
-      }
-      // Si no hay ventana abierta, abrir nueva
-      console.log('🆕 Abriendo nueva ventana');
-      const fullUrl = self.location.origin + path;
-      return clients.openWindow(fullUrl);
-    })
-  );
 });

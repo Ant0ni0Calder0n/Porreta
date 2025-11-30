@@ -28,15 +28,25 @@ const NotificationNavigationListener: React.FC = () => {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'NOTIFICATION_CLICK') {
+      const handleMessage = (event: MessageEvent) => {
+        console.log('📨 Mensaje recibido en App:', event.data);
+        if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
           const communityId = event.data.communityId;
           if (communityId) {
             console.log('🔔 Navegando a comunidad desde notificación:', communityId);
             navigate(`/community/${communityId}`);
+          } else {
+            console.log('Navegando a comunidad desde notificación:', communityId);
+            navigate('/communities');
           }
         }
-      });
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      };
     }
   }, [navigate]);
 
