@@ -17,10 +17,8 @@ export async function requestNotificationPermission(userId: string): Promise<boo
 
     // Solicitar permiso
     const permission = await Notification.requestPermission();
-    console.log('Permiso de notificaciones:', permission);
 
     if (permission !== 'granted') {
-      console.log('Permiso de notificaciones denegado');
       return false;
     }
 
@@ -40,8 +38,6 @@ async function registerFCMToken(userId: string): Promise<void> {
       scope: '/Porreta/'
     });
 
-    console.log('Service Worker registrado:', registration);
-
     // Esperar a que esté activo
     await navigator.serviceWorker.ready;
 
@@ -52,7 +48,7 @@ async function registerFCMToken(userId: string): Promise<void> {
     });
 
     if (token) {
-      console.log('✅ Token FCM obtenido:', token);
+      console.log('✅ Token FCM obtenido');
 
       try {
         // Guardar token en Firestore usando arrayUnion (evita duplicados automáticamente)
@@ -69,7 +65,7 @@ async function registerFCMToken(userId: string): Promise<void> {
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           const tokens = userSnap.data()?.fcmTokens || [];
-          console.log('📊 Tokens actuales en Firestore:', tokens.length, tokens);
+          console.log('📊 Tokens actuales en Firestore:', tokens.length);
         } else {
           console.error('❌ El documento de usuario no existe después de guardar');
         }
