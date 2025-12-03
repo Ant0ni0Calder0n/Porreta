@@ -1,5 +1,5 @@
 import { getToken } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { messaging, db } from '../firebase';
 
 // Clave VAPID pública (obtenida de Firebase Console -> Project Settings -> Cloud Messaging)
@@ -57,9 +57,12 @@ async function registerFCMToken(userId: string): Promise<void> {
       try {
         // Guardar token en Firestore usando arrayUnion (evita duplicados automáticamente)
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
+        
+        // Usar setDoc con merge para crear el documento si no existe
+        await setDoc(userRef, {
           fcmTokens: arrayUnion(token)
-        });
+        }, { merge: true });
+        
         console.log('💾 Token FCM guardado/actualizado en Firestore');
         
         // Verificar que se guardó
@@ -67,6 +70,8 @@ async function registerFCMToken(userId: string): Promise<void> {
         if (userSnap.exists()) {
           const tokens = userSnap.data()?.fcmTokens || [];
           console.log('📊 Tokens actuales en Firestore:', tokens.length, tokens);
+        } else {
+          console.error('❌ El documento de usuario no existe después de guardar');
         }
       } catch (error) {
         console.error('❌ Error guardando token en Firestore:', error);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round } from '../types';
 
@@ -37,7 +37,12 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
     if (!currentUser || !communityId) return;
 
     try {
-      // Buscar rondas con resultados publicados
+      // Obtener seenResults del usuario desde Firestore
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data();
+      const seenResults = userData?.seenResults || {};
+
+      // Buscar rondas con resultados publicados de esta comunidad
       const roundsQuery = query(
         collection(db, 'rounds'),
         where('communityId', '==', communityId),
@@ -45,16 +50,23 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       );
       
       const roundsSnapshot = await getDocs(roundsQuery);
-      const rounds: Round[] = [];
+      const allRounds: Round[] = [];
       
       roundsSnapshot.forEach((doc) => {
-        rounds.push({ id: doc.id, ...doc.data() } as Round);
+        allRounds.push({ id: doc.id, ...doc.data() } as Round);
       });
 
-      // Filtrar rondas que el usuario no ha visto
-      const unseenRounds = rounds.filter((round) => {
-        const key = `seen_result_${round.id}`;
-        return !localStorage.getItem(key);
+      // Filtrar solo rondas ACTIVAS (publicadas hace menos de 7 días)
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      const activeRounds = allRounds.filter((round) => {
+        if (!round.resultsPublishedAt) return false;
+        const publishedTime = round.resultsPublishedAt.toMillis();
+        return publishedTime > sevenDaysAgo;
+      });
+
+      // Filtrar rondas que el usuario NO ha visto
+      const unseenRounds = activeRounds.filter((round) => {
+        return !seenResults[round.id];
       });
 
       if (unseenRounds.length > 0) {
@@ -72,11 +84,49 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
     }
   };
 
-  const handleClose = () => {
-    // Marcar como visto en localStorage
-    newResults.forEach((round) => {
-      localStorage.setItem(`seen_result_${round.id}`, 'true');
-    });
+  const handleClose = async () => {
+    if (!currentUser) return;
+
+    try {
+      // Obtener seenResults actuales
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data();
+      const currentSeenResults = userData?.seenResults || {};
+
+      // Añadir las nuevas rondas vistas con timestamp actual
+      const now = Date.now();
+      const updatedSeenResults = { ...currentSeenResults };
+      
+      newResults.forEach((round) => {
+        updatedSeenResults[round.id] = now;
+      });
+
+      // Limpiar resultados de rondas que ya están en histórico (>7 días)
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+      const cleanedSeenResults: Record<string, number> = {};
+      
+      Object.entries(updatedSeenResults).forEach(([roundId, timestamp]) => {
+        const ts = typeof timestamp === 'number' ? timestamp : 0;
+        if (ts > sevenDaysAgo) {
+          cleanedSeenResults[roundId] = ts;
+        }
+      });
+
+      // Guardar en Firestore
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        seenResults: cleanedSeenResults
+      });
+
+      console.log('✅ Resultados marcados como vistos y limpiados:', {
+        nuevosVistos: newResults.length,
+        totalGuardados: Object.keys(cleanedSeenResults).length,
+        eliminadosViejos: Object.keys(updatedSeenResults).length - Object.keys(cleanedSeenResults).length
+      });
+
+    } catch (error) {
+      console.error('Error guardando resultados vistos:', error);
+    }
+
     setShow(false);
     setNewResults([]);
   };

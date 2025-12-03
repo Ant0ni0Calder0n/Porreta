@@ -75,7 +75,7 @@ export const onRoundVisibilityChange = functions.firestore
 
         const message = {
           notification: {
-            title: '🚀 Nueva ronda disponible!',
+            title: '🚀 Nueva ronda!',
             body: `"${after.name}" en ${communityName}. ¡Haz tu apuesta!`,
           },
           data: {
@@ -204,7 +204,7 @@ export const sendDeadlineReminders = functions.pubsub
           // Solo usuarios que pertenecen a esta comunidad Y no han apostado
           if (
             userData.communities &&
-            userData.communities.includes(communityId) &&
+            userData.communities[communityId] &&
             !userIdsWithBets.has(userId)
           ) {
             const tokens = userData.fcmTokens || [];
@@ -239,8 +239,7 @@ export const sendDeadlineReminders = functions.pubsub
             const message = {
               notification: {
                 title: notificationTitle,
-                body: notificationBody,
-                icon: '🚀',
+                body: notificationBody
               },
               data: {
                 type: 'deadline_reminder',
