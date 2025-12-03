@@ -145,24 +145,15 @@ const CreateBet: React.FC = () => {
         updatedAt: new Date()
       };
 
-      console.log('💾 Guardando apuesta con datos:', {
-        roundId,
-        communityId,
-        userId: currentUser.uid,
-        userNick: userData.nick
-      });
-
       if (existingBet) {
         // Actualizar apuesta existente
         await updateDoc(doc(db, 'bets', existingBet.id), betData);
-        console.log('✅ Apuesta actualizada, ID:', existingBet.id);
       } else {
         // Crear nueva apuesta
-        const newBet = await addDoc(collection(db, 'bets'), {
+        await addDoc(collection(db, 'bets'), {
           ...betData,
           createdAt: new Date()
         });
-        console.log('✅ Apuesta creada con ID:', newBet.id);
       }
 
       console.log('✅ Apuesta guardada para roundId:', roundId);

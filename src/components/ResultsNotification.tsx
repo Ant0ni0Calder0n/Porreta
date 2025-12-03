@@ -56,17 +56,49 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
         allRounds.push({ id: doc.id, ...doc.data() } as Round);
       });
 
-      // Filtrar solo rondas ACTIVAS (publicadas hace menos de 7 días)
-      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      // Crear mapa de rondas ACTIVAS (publicadas hace menos de 7 días)
+      const now = Date.now();
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+      const activeRoundIds = new Set<string>();
+      
       const activeRounds = allRounds.filter((round) => {
         if (!round.resultsPublishedAt) return false;
         const publishedTime = round.resultsPublishedAt.toMillis();
-        return publishedTime > sevenDaysAgo;
+        const isActive = publishedTime > sevenDaysAgo;
+        
+        if (isActive) {
+          activeRoundIds.add(round.id);
+        }
+        return isActive;
       });
 
-      // Filtrar rondas que el usuario NO ha visto
+      // LIMPIEZA: Eliminar de seenResults los IDs que NO están en rondas activas
+      const cleanedSeenResults: Record<string, number> = {};
+      let needsCleanup = false;
+      
+      Object.entries(seenResults).forEach(([roundId, timestamp]) => {
+        const ts = typeof timestamp === 'number' ? timestamp : 0;
+        const isInActive = activeRoundIds.has(roundId);
+        
+        if (isInActive) {
+          cleanedSeenResults[roundId] = ts;
+        } else {
+          needsCleanup = true;
+        }
+      });
+
+      // Si hubo limpieza, actualizar Firestore ANTES de verificar notificaciones
+      if (needsCleanup) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          seenResults: cleanedSeenResults
+        });
+        const eliminados = Object.keys(seenResults).length - Object.keys(cleanedSeenResults).length;
+        console.log(`🧹 Limpieza automática: ${eliminados} rondas eliminadas`);
+      }
+
+      // Filtrar rondas que el usuario NO ha visto (usar los resultados limpios)
       const unseenRounds = activeRounds.filter((round) => {
-        return !seenResults[round.id];
+        return !cleanedSeenResults[round.id];
       });
 
       if (unseenRounds.length > 0) {
@@ -88,7 +120,7 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
     if (!currentUser) return;
 
     try {
-      // Obtener seenResults actuales
+      // Obtener seenResults actuales (ya limpiados por checkForNewResults)
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       const userData = userDoc.data();
       const currentSeenResults = userData?.seenResults || {};
@@ -101,27 +133,12 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
         updatedSeenResults[round.id] = now;
       });
 
-      // Limpiar resultados de rondas que ya están en histórico (>7 días)
-      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-      const cleanedSeenResults: Record<string, number> = {};
-      
-      Object.entries(updatedSeenResults).forEach(([roundId, timestamp]) => {
-        const ts = typeof timestamp === 'number' ? timestamp : 0;
-        if (ts > sevenDaysAgo) {
-          cleanedSeenResults[roundId] = ts;
-        }
-      });
-
       // Guardar en Firestore
       await updateDoc(doc(db, 'users', currentUser.uid), {
-        seenResults: cleanedSeenResults
+        seenResults: updatedSeenResults
       });
 
-      console.log('✅ Resultados marcados como vistos y limpiados:', {
-        nuevosVistos: newResults.length,
-        totalGuardados: Object.keys(cleanedSeenResults).length,
-        eliminadosViejos: Object.keys(updatedSeenResults).length - Object.keys(cleanedSeenResults).length
-      });
+      console.log(`✅ ${newResults.length} resultado(s) marcado(s) como visto(s)`);
 
     } catch (error) {
       console.error('Error guardando resultados vistos:', error);

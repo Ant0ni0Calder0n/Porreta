@@ -34,43 +34,25 @@ const RoundDetail: React.FC = () => {
   const loadData = async () => {
     if (!roundId) return;
 
-    console.log('🔄 Cargando ronda:', roundId);
-    console.log('👤 Usuario actual:', currentUser?.uid);
-
     try {
       // Cargar ronda
       const roundDoc = await getDoc(doc(db, 'rounds', roundId));
       if (roundDoc.exists()) {
         const roundData = { id: roundDoc.id, ...roundDoc.data() } as Round;
-        console.log('📋 Ronda cargada:', {
-          id: roundData.id,
-          name: roundData.name,
-          communityId: roundData.communityId
-        });
         setRound(roundData);
       } else {
         console.error('❌ Ronda no encontrada');
       }
 
       // Cargar apuestas
-      console.log('🔍 Buscando apuestas para roundId:', roundId);
       const q = query(collection(db, 'bets'), where('roundId', '==', roundId));
       const querySnapshot = await getDocs(q);
-      console.log('📊 Apuestas encontradas:', querySnapshot.size);
       
       const betsData: Bet[] = [];
       querySnapshot.forEach((doc) => {
         const betData = doc.data();
-        console.log('✅ Apuesta encontrada:', {
-          id: doc.id,
-          userId: betData.userId,
-          userNick: betData.userNick,
-          roundId: betData.roundId
-        });
         betsData.push({ id: doc.id, ...betData } as Bet);
       });
-      
-      console.log('📦 Total apuestas cargadas:', betsData.length);
       setBets(betsData);
     } catch (error) {
       console.error('❌ Error cargando datos:', error);

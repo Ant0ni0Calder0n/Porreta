@@ -105,7 +105,6 @@ const CommunityDashboard: React.FC = () => {
       
       let roundsData: Round[] = [];
       querySnapshot.forEach((doc) => {
-        console.log('✅ Ronda:', doc.id, doc.data());
         roundsData.push({ id: doc.id, ...doc.data() } as Round);
       });
 
