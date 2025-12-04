@@ -79,6 +79,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return unsubscribe;
   }, []);
 
+  // Actualizar lastSeen cuando la app vuelve del background (importante para PWA Android)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && currentUser) {
+        updateDoc(doc(db, 'users', currentUser.uid), {
+          lastSeen: serverTimestamp()
+        }).catch(err => console.error('Error actualizando lastSeen:', err));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentUser]);
+  
   const signup = async (email: string, password: string, nick: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
