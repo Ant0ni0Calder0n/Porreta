@@ -6,7 +6,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { User } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
@@ -66,6 +66,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCurrentUser(user);
       if (user) {
         await loadUserData(user);
+        // Actualizar lastSeen en background
+        updateDoc(doc(db, 'users', user.uid), {
+          lastSeen: serverTimestamp()
+        }).catch(err => console.error('Error actualizando lastSeen:', err));
       } else {
         setUserData(null);
       }

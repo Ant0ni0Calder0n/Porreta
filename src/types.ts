@@ -10,6 +10,7 @@ export interface User {
   communities: Record<string, UserRole>;
   isSuperAdmin?: boolean; // Campo que se establece manualmente en Firebase Console
   seenResults?: Record<string, number>; // { roundId: timestamp } - Resultados de rondas ya vistos
+  lastSeen?: Timestamp; // Última vez que el usuario se conectó
 }
 
 export interface Community {
