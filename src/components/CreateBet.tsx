@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Round, Bet, Prediction } from '../types';
 
@@ -102,6 +102,8 @@ const CreateBet: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent, forceSave = false) => {
     e.preventDefault();
 
+    if (submitting) return;
+
     if (!round || !currentUser || !userData || !communityId || !roundId) return;
 
     // Validar que todos los campos estén completos
@@ -122,17 +124,17 @@ const CreateBet: React.FC = () => {
     }
 
     setError('');
+    setSubmitting(true);
 
     // Verificar duplicados si no se fuerza el guardado
     if (!forceSave) {
       const isDuplicate = await checkDuplicate();
       if (isDuplicate) {
+        setSubmitting(false);
         setShowDuplicateModal(true);
         return;
       }
     }
-
-    setSubmitting(true);
 
     try {
       const betData = {
@@ -145,16 +147,11 @@ const CreateBet: React.FC = () => {
         updatedAt: new Date()
       };
 
-      if (existingBet) {
-        // Actualizar apuesta existente
-        await updateDoc(doc(db, 'bets', existingBet.id), betData);
-      } else {
-        // Crear nueva apuesta
-        await addDoc(collection(db, 'bets'), {
-          ...betData,
-          createdAt: new Date()
-        });
-      }
+      const betId = existingBet?.id ?? `${roundId}_${currentUser.uid}`;
+      await setDoc(doc(db, 'bets', betId), {
+        ...betData,
+        ...(existingBet ? {} : { createdAt: new Date() })
+      }, { merge: true });
 
       console.log('✅ Apuesta guardada para roundId:', roundId);
 
