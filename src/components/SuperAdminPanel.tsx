@@ -158,6 +158,35 @@ const SuperAdminPanel: React.FC = () => {
     }
   };
 
+  const handleToggleCommunityActive = async (community: Community) => {
+    const nextIsActive = community.isActive === false;
+
+    try {
+      await updateDoc(doc(db, 'communities', community.id), {
+        isActive: nextIsActive,
+        deactivatedAt: nextIsActive ? deleteField() : Timestamp.now()
+      });
+
+      setCommunities(prev => prev.map(item => (
+        item.id === community.id
+          ? { ...item, isActive: nextIsActive, deactivatedAt: nextIsActive ? undefined : Timestamp.now() }
+          : item
+      )));
+
+      if (editingCommunity?.id === community.id) {
+        setEditingCommunity({ ...editingCommunity, isActive: nextIsActive });
+      }
+
+      setAlertMessage({
+        message: nextIsActive ? 'Comunidad activada correctamente' : 'Comunidad desactivada correctamente',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error cambiando estado de comunidad:', error);
+      setAlertMessage({ message: 'Error al cambiar el estado de la comunidad', type: 'error' });
+    }
+  };
+
   const handleEditRound = (round: Round) => {
     setEditingRound(round);
     setEditRoundName(round.name);
@@ -686,7 +715,15 @@ const SuperAdminPanel: React.FC = () => {
                 opacity: selectedCommunity === community.id ? 1 : 0.85
               }}
             >
-              <h3 style={{ marginTop: 0 }}>{community.name}</h3>
+              <h3 style={{ marginTop: 0 }}>
+                {community.name}
+                <span
+                  className={community.isActive === false ? 'badge badge-closed' : 'badge badge-open'}
+                  style={{ marginLeft: '8px' }}
+                >
+                  {community.isActive === false ? 'Desactivada' : 'Activa'}
+                </span>
+              </h3>
               {community.description && (
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                   {community.description}
@@ -726,6 +763,20 @@ const SuperAdminPanel: React.FC = () => {
                   }}
                 >
                   Editar
+                </button>
+                <button
+                  onClick={() => handleToggleCommunityActive(community)}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: community.isActive === false ? '#4CAF50' : '#9E9E9E',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  {community.isActive === false ? 'Activar' : 'Desactivar'}
                 </button>
                 <button
                   onClick={() => handleDeleteCommunity(community)}

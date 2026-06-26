@@ -21,6 +21,8 @@ export interface Community {
   createdAt: Timestamp;
   membersCount: number;
   description?: string;
+  isActive?: boolean;
+  deactivatedAt?: Timestamp;
 }
 
 export type MatchType = 'exact' | '1X2';

@@ -43,7 +43,7 @@ const formatTimeRemaining = (deadline: Timestamp): { text: string; color: string
 
 const CommunityDashboard: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
-  const { userData } = useAuth();
+  const { userData, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [community, setCommunity] = useState<Community | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -90,6 +90,11 @@ const CommunityDashboard: React.FC = () => {
       const communityDoc = await getDoc(doc(db, 'communities', communityId));
       if (communityDoc.exists()) {
         const communityData = { id: communityDoc.id, ...communityDoc.data() } as Community;
+        if (communityData.isActive === false && !isSuperAdmin) {
+          setAlertMessage({ message: 'Esta comunidad está desactivada temporalmente', type: 'warning' });
+          navigate('/communities', { replace: true });
+          return;
+        }
         setCommunity(communityData);
         setDescription(communityData.description || '');
       }

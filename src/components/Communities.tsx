@@ -50,7 +50,10 @@ const Communities: React.FC = () => {
       for (const id of communityIds) {
         const communityDoc = await getDocs(query(collection(db, 'communities'), where('__name__', '==', id)));
         communityDoc.forEach((doc) => {
-          communitiesData.push({ id: doc.id, ...doc.data() } as Community);
+          const community = { id: doc.id, ...doc.data() } as Community;
+          if (isSuperAdmin || community.isActive !== false) {
+            communitiesData.push(community);
+          }
         });
       }
       setCommunities(communitiesData);
@@ -157,7 +160,12 @@ const Communities: React.FC = () => {
                 className="list-item"
                 onClick={() => navigate(`/community/${community.id}`)}
               >
-                <h3 style={{ margin: '0 0 8px 0' }}>{community.name}</h3>
+                <h3 style={{ margin: '0 0 8px 0' }}>
+                  {community.name}
+                  {community.isActive === false && (
+                    <span className="badge badge-closed" style={{ marginLeft: '8px' }}>Desactivada</span>
+                  )}
+                </h3>
                 <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
                   {community.membersCount} miembros
                   {userData?.communities[community.id] === 'admin' && (
@@ -230,6 +238,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ onClose, on
         passwordHash,
         createdBy: currentUser.uid,
         createdAt: new Date(),
+        isActive: true,
         membersCount: 1
       });
 
@@ -330,6 +339,12 @@ const JoinCommunityModal: React.FC<JoinCommunityModalProps> = ({ onClose, onJoin
 
       const communityDoc = querySnapshot.docs[0];
       const community = communityDoc.data() as Community;
+
+      if (community.isActive === false) {
+        setError('Esta comunidad está desactivada temporalmente');
+        setLoading(false);
+        return;
+      }
 
       // Verificar si el usuario ya es miembro
       if (userData.communities[communityDoc.id]) {

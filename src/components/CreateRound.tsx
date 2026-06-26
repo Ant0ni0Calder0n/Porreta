@@ -14,9 +14,7 @@ const CreateRound: React.FC = () => {
   const [deadline, setDeadline] = useState('');
   const [isVisible, setIsVisible] = useState(true);
   const [matches, setMatches] = useState<Match[]>([
-    { homeTeam: '', awayTeam: '', type: 'exact' },
-    { homeTeam: '', awayTeam: '', type: 'exact' },
-    { homeTeam: '', awayTeam: '', type: '1X2' }
+    { homeTeam: '', awayTeam: '', type: 'exact' }
   ]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -163,9 +161,15 @@ const CreateRound: React.FC = () => {
           </div>
 
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <h2 style={{ marginTop: 0, marginBottom: 0 }}>Partidos ({matches.length})</h2>
-              <button type="button" className="button button-secondary" onClick={addMatch} disabled={loading}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+              <h2 style={{ marginTop: 0, marginBottom: 0, whiteSpace: 'nowrap' }}>Partidos ({matches.length})</h2>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={addMatch}
+                disabled={loading}
+                style={{ width: 'auto', padding: '8px 12px', fontSize: '14px', whiteSpace: 'nowrap' }}
+              >
                 Añadir Partido
               </button>
             </div>
