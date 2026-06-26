@@ -37,8 +37,24 @@ messaging.onBackgroundMessage((payload) => {
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Click en notificación - solo cerrarla
+// Click en notificación - abrir o enfocar la app
 self.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Click en notificación - cerrando');
+  console.log('🔔 Click en notificación - abriendo Porreta');
   event.notification.close();
+
+  const appUrl = new URL('/Porreta/', self.location.origin).href;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.startsWith(appUrl) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(appUrl);
+      }
+    })
+  );
 });
