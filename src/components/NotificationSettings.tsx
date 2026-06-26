@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationSettings as NotificationSettingsType } from '../types';
+import { hasNotificationPermission, requestNotificationPermission, sendTestNotification } from '../utils/notifications';
 
 const defaultSettings: NotificationSettingsType = {
   newRounds: true,
@@ -20,6 +21,9 @@ const NotificationSettings: React.FC = () => {
     ...(userData?.notificationSettings || {})
   });
   const [saving, setSaving] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(hasNotificationPermission());
   const [statusMessage, setStatusMessage] = useState('');
 
   const updateSetting = async (field: keyof NotificationSettingsType, value: boolean) => {
@@ -41,6 +45,43 @@ const NotificationSettings: React.FC = () => {
       setStatusMessage('Error al guardar las preferencias');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    if (!currentUser) return;
+
+    setRequestingPermission(true);
+    setStatusMessage('');
+
+    try {
+      const enabled = await requestNotificationPermission(currentUser.uid);
+      setPermissionGranted(enabled);
+      setStatusMessage(enabled
+        ? 'Notificaciones activadas en este dispositivo'
+        : 'No se concedió permiso de notificaciones');
+    } catch (error) {
+      console.error('Error activando notificaciones:', error);
+      setStatusMessage('Error al activar notificaciones');
+    } finally {
+      setRequestingPermission(false);
+    }
+  };
+
+  const handleSendTest = async () => {
+    setSendingTest(true);
+    setStatusMessage('');
+
+    try {
+      const result = await sendTestNotification();
+      setStatusMessage(result.successCount > 0
+        ? 'Notificación de prueba enviada'
+        : 'No se pudo enviar la prueba. Activa las notificaciones primero.');
+    } catch (error) {
+      console.error('Error enviando notificación de prueba:', error);
+      setStatusMessage('Error al enviar la notificación de prueba');
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -84,6 +125,33 @@ const NotificationSettings: React.FC = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: 0 }}>
             Configura qué avisos quieres recibir en este dispositivo y usuario.
           </p>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <button
+              type="button"
+              className="button"
+              onClick={handleEnableNotifications}
+              disabled={requestingPermission}
+              style={{ width: 'auto', padding: '10px 14px', margin: 0 }}
+            >
+              {requestingPermission ? 'Activando...' : permissionGranted ? 'Reactivar notificaciones' : 'Activar notificaciones'}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={handleSendTest}
+              disabled={sendingTest || !permissionGranted}
+              style={{ width: 'auto', padding: '10px 14px', margin: 0 }}
+            >
+              {sendingTest ? 'Enviando...' : 'Enviar prueba'}
+            </button>
+          </div>
+
+          {!permissionGranted && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '-6px' }}>
+              El navegador todavía no tiene permiso para mostrar notificaciones en este dispositivo.
+            </p>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {options.map(option => (

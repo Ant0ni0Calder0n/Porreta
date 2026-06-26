@@ -1,9 +1,11 @@
-import { getToken } from 'firebase/messaging';
+import { httpsCallable } from 'firebase/functions';
+import { getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
-import { messaging, db } from '../firebase';
+import { messaging, db, functions } from '../firebase';
 
 // Clave VAPID pública (obtenida de Firebase Console -> Project Settings -> Cloud Messaging)
 const VAPID_KEY = 'BG0owZ2spXe7RKBKEoDljfW0wF0YzqXCLBOhj1IVCATZKI-eAcihsw1ua2u1pF7iDbX_VSWbXzHbGcwEqGg0HTg';
+let foregroundListenerReady = false;
 
 export async function requestNotificationPermission(userId: string): Promise<boolean> {
   try {
@@ -24,11 +26,44 @@ export async function requestNotificationPermission(userId: string): Promise<boo
 
     // Registrar Service Worker y obtener token FCM
     await registerFCMToken(userId);
+    await setupForegroundNotifications();
     return true;
   } catch (error) {
     console.error('Error al solicitar permisos:', error);
     return false;
   }
+}
+
+export async function setupForegroundNotifications(): Promise<void> {
+  if (foregroundListenerReady || !('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+
+  foregroundListenerReady = true;
+
+  onMessage(messaging, async (payload) => {
+    console.log('📩 Mensaje recibido en primer plano:', payload);
+
+    const registration = await navigator.serviceWorker.getRegistration('/Porreta/')
+      || await navigator.serviceWorker.register('/Porreta/firebase-messaging-sw.js', { scope: '/Porreta/' });
+
+    const title = payload.notification?.title || payload.data?.title || 'Porreta';
+    const body = payload.notification?.body || payload.data?.body || '';
+
+    await registration.showNotification(title, {
+      body,
+      icon: '/Porreta/icon-192.png',
+      badge: '/Porreta/icon-192.png',
+      tag: payload.data?.roundId || payload.data?.type || 'porreta',
+      data: payload.data
+    });
+  });
+}
+
+export async function sendTestNotification(): Promise<{ successCount: number; failureCount: number }> {
+  const callable = httpsCallable<void, { successCount: number; failureCount: number }>(functions, 'sendTestNotification');
+  const result = await callable();
+  return result.data;
 }
 
 async function registerFCMToken(userId: string): Promise<void> {

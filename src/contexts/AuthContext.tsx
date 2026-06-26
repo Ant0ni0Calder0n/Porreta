@@ -9,7 +9,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { User } from '../types';
-import { requestNotificationPermission } from '../utils/notifications';
+import { setupForegroundNotifications } from '../utils/notifications';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -44,12 +44,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUserData({ uid: user.uid, ...userDoc.data() } as User);
       }
 
-      // Solicitar permisos de notificación después de cargar datos
-      setTimeout(() => {
-        requestNotificationPermission(user.uid).catch(err => {
-          console.error('Error solicitando permisos de notificación:', err);
-        });
-      }, 1000); // Esperar 1 segundo para que el usuario vea la interfaz primero
+      setupForegroundNotifications().catch(err => {
+        console.error('Error preparando notificaciones en primer plano:', err);
+      });
     } catch (error) {
       console.error('Error cargando datos usuario:', error);
     }

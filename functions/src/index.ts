@@ -13,6 +13,70 @@ const allowsNotification = (userData: admin.firestore.DocumentData, preference: 
   return settings[preference] !== false;
 };
 
+async function removeInvalidTokens(userId: string, nick: string, tokens: string[], responses: admin.messaging.SendResponse[]) {
+  const tokensToRemove: string[] = [];
+
+  responses.forEach((resp, idx) => {
+    if (!resp.success) {
+      const errorCode = resp.error?.code;
+      console.log(`  - Token ${idx}: Error ${errorCode} - ${resp.error?.message}`);
+
+      if (errorCode === 'messaging/registration-token-not-registered' ||
+          errorCode === 'messaging/invalid-registration-token' ||
+          errorCode === 'messaging/invalid-argument') {
+        tokensToRemove.push(tokens[idx]);
+      }
+    }
+  });
+
+  if (tokensToRemove.length > 0) {
+    await db.collection('users').doc(userId).update({
+      fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
+    });
+    console.log(`🧹 Eliminados ${tokensToRemove.length} tokens inválidos de ${nick}`);
+  }
+}
+
+export const sendTestNotification = functions.https.onCall(async (_data, context) => {
+  if (!context.auth?.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión para enviar una notificación de prueba');
+  }
+
+  const userId = context.auth.uid;
+  const userDoc = await db.collection('users').doc(userId).get();
+
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Usuario no encontrado');
+  }
+
+  const userData = userDoc.data()!;
+  const tokens: string[] = userData.fcmTokens || [];
+
+  if (tokens.length === 0) {
+    return { successCount: 0, failureCount: 0 };
+  }
+
+  const response = await messaging.sendEachForMulticast({
+    tokens,
+    notification: {
+      title: '🔔 Prueba de Porreta',
+      body: 'Si ves esto, tus notificaciones funcionan correctamente.'
+    },
+    data: {
+      type: 'test_notification',
+      title: '🔔 Prueba de Porreta',
+      body: 'Si ves esto, tus notificaciones funcionan correctamente.'
+    }
+  });
+
+  await removeInvalidTokens(userId, userData.nick || 'Usuario', tokens, response.responses);
+
+  return {
+    successCount: response.successCount,
+    failureCount: response.failureCount
+  };
+});
+
 // Cloud Function que se dispara cuando se crea o actualiza una ronda
 // Envía notificaciones cuando la ronda es visible (creación directa o cambio de estado)
 export const onRoundVisibilityChange = functions.firestore
