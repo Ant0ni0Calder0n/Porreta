@@ -73,6 +73,23 @@ const Communities: React.FC = () => {
     }
   };
 
+  const headerButtonStyle: React.CSSProperties = {
+    width: '38px',
+    height: '38px',
+    minWidth: '38px',
+    padding: 0,
+    border: '1px solid rgba(255,255,255,0.75)',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '17px',
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  };
+
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -81,43 +98,33 @@ const Communities: React.FC = () => {
     <div>
       <div className="header">
         <h1>Mis Comunidades</h1>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {isSuperAdmin && (
             <button 
               onClick={() => navigate('/super-admin')}
-              style={{
-                backgroundColor: '#607D8B',
-                color: 'white',
-                padding: '10px 20px',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                opacity: 0.85
-              }}
+              style={headerButtonStyle}
+              title="Panel de super administrador"
             >
               🔧
             </button>
           )}
           <button
+            onClick={() => navigate('/notifications')}
+            style={headerButtonStyle}
+            title="Notificaciones"
+          >
+            🔔
+          </button>
+          <button
             onClick={toggleTheme}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              padding: '10px 16px',
-              border: '1px solid white',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            style={headerButtonStyle}
             title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
           >
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
-          <button onClick={handleLogout}>Salir</button>
+          <button onClick={handleLogout} style={{ ...headerButtonStyle, fontSize: '13px', fontWeight: 600 }} title="Salir">
+            Salir
+          </button>
         </div>
       </div>
 

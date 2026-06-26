@@ -2,6 +2,13 @@ import { Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'member' | 'admin';
 
+export interface NotificationSettings {
+  newRounds: boolean;
+  deadlineReminders: boolean;
+  resultsPublished: boolean;
+  winnersAndBote: boolean;
+}
+
 export interface User {
   uid: string;
   email: string;
@@ -11,6 +18,7 @@ export interface User {
   isSuperAdmin?: boolean; // Campo que se establece manualmente en Firebase Console
   seenResults?: Record<string, number>; // { roundId: timestamp } - Resultados de rondas ya vistos
   lastSeen?: Timestamp; // Última vez que el usuario se conectó
+  notificationSettings?: NotificationSettings;
 }
 
 export interface Community {

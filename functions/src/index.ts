@@ -6,6 +6,13 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
+type NotificationPreference = 'newRounds' | 'deadlineReminders' | 'resultsPublished' | 'winnersAndBote';
+
+const allowsNotification = (userData: admin.firestore.DocumentData, preference: NotificationPreference): boolean => {
+  const settings = userData.notificationSettings || {};
+  return settings[preference] !== false;
+};
+
 // Cloud Function que se dispara cuando se crea o actualiza una ronda
 // Envía notificaciones cuando la ronda es visible (creación directa o cambio de estado)
 export const onRoundVisibilityChange = functions.firestore
@@ -52,7 +59,11 @@ export const onRoundVisibilityChange = functions.firestore
       // Filtrar solo miembros de esta comunidad
       for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
-        if (userData.communities && userData.communities[communityId]) {
+        if (
+          userData.communities &&
+          userData.communities[communityId] &&
+          allowsNotification(userData, 'newRounds')
+        ) {
           communityMembers.push({
             id: userDoc.id,
             tokens: userData.fcmTokens || [],
@@ -205,7 +216,8 @@ export const sendDeadlineReminders = functions.pubsub
           if (
             userData.communities &&
             userData.communities[communityId] &&
-            !userIdsWithBets.has(userId)
+            !userIdsWithBets.has(userId) &&
+            allowsNotification(userData, 'deadlineReminders')
           ) {
             const tokens = userData.fcmTokens || [];
             if (tokens.length > 0) {

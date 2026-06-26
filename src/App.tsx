@@ -11,6 +11,7 @@ import RoundDetail from './components/RoundDetail';
 import CreateBet from './components/CreateBet';
 import PublishResults from './components/PublishResults';
 import SuperAdminPanel from './components/SuperAdminPanel';
+import NotificationSettings from './components/NotificationSettings';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -75,6 +76,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PublishResults />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationSettings />
               </ProtectedRoute>
             }
           />

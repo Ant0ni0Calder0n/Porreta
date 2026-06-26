@@ -102,7 +102,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email,
       nick,
       createdAt: new Date(),
-      communities: {}
+      communities: {},
+      notificationSettings: {
+        newRounds: true,
+        deadlineReminders: true,
+        resultsPublished: true,
+        winnersAndBote: true
+      }
     });
 
     await loadUserData(user);
