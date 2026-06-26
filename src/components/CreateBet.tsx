@@ -22,6 +22,18 @@ const CreateBet: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
+  const buildInitialPredictions = (roundData: Round, existingPredictions: Prediction[] = []) => {
+    return roundData.matches.map((match, index) => {
+      const existingPrediction = existingPredictions[index];
+      if (existingPrediction?.type === match.type) return existingPrediction;
+
+      if (match.type === 'exact') {
+        return { type: 'exact', homeGoals: undefined, awayGoals: undefined } as Prediction;
+      }
+      return { type: '1X2', pick: '1' } as Prediction;
+    });
+  };
+
   useEffect(() => {
     loadData();
   }, [roundId]);
@@ -46,17 +58,10 @@ const CreateBet: React.FC = () => {
         if (!querySnapshot.empty) {
           const betData = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Bet;
           setExistingBet(betData);
-          setPredictions(betData.predictions);
+          setPredictions(buildInitialPredictions(roundData, betData.predictions));
         } else {
           // Inicializar predicciones vacías según los partidos de la ronda
-          const initialPredictions: Prediction[] = roundData.matches.map(match => {
-            if (match.type === 'exact') {
-              return { type: 'exact', homeGoals: undefined, awayGoals: undefined };
-            } else {
-              return { type: '1X2', pick: '1' };
-            }
-          });
-          setPredictions(initialPredictions);
+          setPredictions(buildInitialPredictions(roundData));
         }
       }
     } catch (error) {
@@ -83,8 +88,11 @@ const CreateBet: React.FC = () => {
         if (doc.id === existingBet?.id) continue; // Ignorar propia apuesta
         
         const bet = doc.data() as Bet;
+        if (bet.predictions.length !== predictions.length) continue;
+
         const isDuplicate = bet.predictions.every((pred, idx) => {
           const myPred = predictions[idx];
+          if (!myPred || pred.type !== myPred.type) return false;
           if (pred.type === 'exact') {
             return pred.homeGoals === myPred.homeGoals && pred.awayGoals === myPred.awayGoals;
           }

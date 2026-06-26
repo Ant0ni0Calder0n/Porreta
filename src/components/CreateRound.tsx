@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Match } from '../types';
+import { Match, MatchType } from '../types';
 
 const CreateRound: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
@@ -21,10 +21,26 @@ const CreateRound: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleMatchChange = (index: number, field: 'homeTeam' | 'awayTeam', value: string) => {
+  const handleMatchChange = (index: number, field: 'homeTeam' | 'awayTeam' | 'type', value: string) => {
     const newMatches = [...matches];
-    newMatches[index][field] = value;
+    if (field === 'type') {
+      newMatches[index].type = value as MatchType;
+    } else {
+      newMatches[index][field] = value;
+    }
     setMatches(newMatches);
+  };
+
+  const addMatch = () => {
+    setMatches([...matches, { homeTeam: '', awayTeam: '', type: 'exact' }]);
+  };
+
+  const removeMatch = (index: number) => {
+    if (matches.length === 1) {
+      setError('La ronda debe tener al menos un partido');
+      return;
+    }
+    setMatches(matches.filter((_, idx) => idx !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,8 +62,13 @@ const CreateRound: React.FC = () => {
       return;
     }
 
+    if (matches.length === 0) {
+      setError('Añade al menos un partido');
+      return;
+    }
+
     for (const match of matches) {
-      if (!match.homeTeam || !match.awayTeam) {
+      if (!match.homeTeam.trim() || !match.awayTeam.trim()) {
         setError('Completa todos los equipos');
         return;
       }
@@ -65,7 +86,11 @@ const CreateRound: React.FC = () => {
         createdAt: new Date(),
         name: name.trim(),
         deadline: deadlineDate,
-        matches,
+        matches: matches.map(match => ({
+          ...match,
+          homeTeam: match.homeTeam.trim(),
+          awayTeam: match.awayTeam.trim()
+        })),
         status: 'open',
         isVisible: isVisible
       });
@@ -138,67 +163,61 @@ const CreateRound: React.FC = () => {
           </div>
 
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Partidos</h2>
-
-            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Partido 1 (Resultado Exacto)</h3>
-            <div style={{ marginBottom: '16px' }}>
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Local"
-                value={matches[0].homeTeam}
-                onChange={(e) => handleMatchChange(0, 'homeTeam', e.target.value)}
-                disabled={loading}
-              />
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Visitante"
-                value={matches[0].awayTeam}
-                onChange={(e) => handleMatchChange(0, 'awayTeam', e.target.value)}
-                disabled={loading}
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ marginTop: 0, marginBottom: 0 }}>Partidos ({matches.length})</h2>
+              <button type="button" className="button button-secondary" onClick={addMatch} disabled={loading}>
+                Añadir Partido
+              </button>
             </div>
 
-            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Partido 2 (Resultado Exacto)</h3>
-            <div style={{ marginBottom: '16px' }}>
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Local"
-                value={matches[1].homeTeam}
-                onChange={(e) => handleMatchChange(1, 'homeTeam', e.target.value)}
-                disabled={loading}
-              />
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Visitante"
-                value={matches[1].awayTeam}
-                onChange={(e) => handleMatchChange(1, 'awayTeam', e.target.value)}
-                disabled={loading}
-              />
-            </div>
+            <p style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+              Puedes crear jornadas con cualquier número de partidos y elegir el tipo de apuesta de cada uno.
+            </p>
 
-            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Partido 3 (1 X 2)</h3>
-            <div style={{ marginBottom: '16px' }}>
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Local"
-                value={matches[2].homeTeam}
-                onChange={(e) => handleMatchChange(2, 'homeTeam', e.target.value)}
-                disabled={loading}
-              />
-              <input
-                type="text"
-                className="input"
-                placeholder="Equipo Visitante"
-                value={matches[2].awayTeam}
-                onChange={(e) => handleMatchChange(2, 'awayTeam', e.target.value)}
-                disabled={loading}
-              />
-            </div>
+            {matches.map((match, index) => (
+              <div key={index} style={{ marginBottom: '18px', paddingBottom: '18px', borderBottom: index < matches.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '16px', margin: 0 }}>Partido {index + 1}</h3>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => removeMatch(index)}
+                    disabled={loading || matches.length === 1}
+                    style={{ width: 'auto', padding: '8px 12px' }}
+                  >
+                    Quitar
+                  </button>
+                </div>
+
+                <label className="label">Tipo de apuesta</label>
+                <select
+                  className="input"
+                  value={match.type}
+                  onChange={(e) => handleMatchChange(index, 'type', e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="exact">Resultado Exacto</option>
+                  <option value="1X2">1 X 2</option>
+                </select>
+
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Equipo Local"
+                  value={match.homeTeam}
+                  onChange={(e) => handleMatchChange(index, 'homeTeam', e.target.value)}
+                  disabled={loading}
+                />
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Equipo Visitante"
+                  value={match.awayTeam}
+                  onChange={(e) => handleMatchChange(index, 'awayTeam', e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            ))}
 
             {error && <div className="error">{error}</div>}
 
