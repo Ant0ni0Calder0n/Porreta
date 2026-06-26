@@ -32,7 +32,7 @@ const RoundDetail: React.FC = () => {
   }, [roundId]);
 
   const loadData = async () => {
-    if (!roundId) return;
+    if (!roundId || !communityId) return;
 
     try {
       // Cargar ronda
@@ -45,7 +45,11 @@ const RoundDetail: React.FC = () => {
       }
 
       // Cargar apuestas
-      const q = query(collection(db, 'bets'), where('roundId', '==', roundId));
+      const q = query(
+        collection(db, 'bets'),
+        where('roundId', '==', roundId),
+        where('communityId', '==', communityId)
+      );
       const querySnapshot = await getDocs(q);
       
       const betsData: Bet[] = [];

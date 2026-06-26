@@ -149,7 +149,11 @@ const PublishResults: React.FC = () => {
       });
 
       // Calcular ganador
-      const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundId));
+      const betsQuery = query(
+        collection(db, 'bets'),
+        where('roundId', '==', roundId),
+        where('communityId', '==', communityId)
+      );
       const betsSnapshot = await getDocs(betsQuery);
       const bets: Bet[] = [];
       betsSnapshot.forEach((doc) => {

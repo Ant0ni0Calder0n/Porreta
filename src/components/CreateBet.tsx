@@ -39,7 +39,7 @@ const CreateBet: React.FC = () => {
   }, [roundId]);
 
   const loadData = async () => {
-    if (!roundId || !currentUser) return;
+    if (!roundId || !communityId || !currentUser) return;
 
     try {
       // Cargar ronda
@@ -52,6 +52,7 @@ const CreateBet: React.FC = () => {
         const q = query(
           collection(db, 'bets'),
           where('roundId', '==', roundId),
+          where('communityId', '==', communityId),
           where('userId', '==', currentUser.uid)
         );
         const querySnapshot = await getDocs(q);
@@ -78,10 +79,14 @@ const CreateBet: React.FC = () => {
   };
 
   const checkDuplicate = async () => {
-    if (!roundId) return false;
+    if (!roundId || !communityId) return false;
 
     try {
-      const q = query(collection(db, 'bets'), where('roundId', '==', roundId));
+      const q = query(
+        collection(db, 'bets'),
+        where('roundId', '==', roundId),
+        where('communityId', '==', communityId)
+      );
       const querySnapshot = await getDocs(q);
       
       for (const doc of querySnapshot.docs) {

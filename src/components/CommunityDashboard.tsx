@@ -131,7 +131,8 @@ const CommunityDashboard: React.FC = () => {
         // Contar total de apuestas
         const betsQuery = query(
           collection(db, 'bets'),
-          where('roundId', '==', round.id)
+          where('roundId', '==', round.id),
+          where('communityId', '==', communityId)
         );
         const betsSnapshot = await getDocs(betsQuery);
         countsMap[round.id] = betsSnapshot.size;
@@ -141,6 +142,7 @@ const CommunityDashboard: React.FC = () => {
           const userBetQuery = query(
             collection(db, 'bets'),
             where('roundId', '==', round.id),
+            where('communityId', '==', communityId),
             where('userId', '==', userData.uid)
           );
           const userBetSnapshot = await getDocs(userBetQuery);
@@ -237,7 +239,8 @@ const CommunityDashboard: React.FC = () => {
         if (countsMap[round.id] === undefined) {
           const betsQuery = query(
             collection(db, 'bets'),
-            where('roundId', '==', round.id)
+            where('roundId', '==', round.id),
+            where('communityId', '==', communityId)
           );
           const betsSnapshot = await getDocs(betsQuery);
           countsMap[round.id] = betsSnapshot.size;
