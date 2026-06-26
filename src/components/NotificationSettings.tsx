@@ -97,7 +97,7 @@ const NotificationSettings: React.FC = () => {
     {
       key: 'deadlineReminders',
       title: 'Recordatorios antes del cierre',
-      description: 'Avisarme si queda poco tiempo y todavía no he apostado.'
+      description: 'Avisarme cada 2 horas el día del cierre si son más de las 10:00 y todavía no he apostado.'
     },
     {
       key: 'winnersAndBote',

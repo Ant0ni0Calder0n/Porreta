@@ -13,6 +13,29 @@ const allowsNotification = (userData: admin.firestore.DocumentData, preference: 
   return settings[preference] !== false;
 };
 
+const madridDateParts = (date: Date) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  return parts.reduce<Record<string, string>>((values, part) => {
+    if (part.type !== 'literal') {
+      values[part.type] = part.value;
+    }
+    return values;
+  }, {});
+};
+
+const madridDateKey = (date: Date): string => {
+  const parts = madridDateParts(date);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
 async function removeInvalidTokens(userId: string, nick: string, tokens: string[], responses: admin.messaging.SendResponse[]) {
   const tokensToRemove: string[] = [];
 
@@ -215,8 +238,8 @@ export const onRoundVisibilityChange = functions.firestore
     }
   });
 
-// Cloud Function programada que se ejecuta cada 30 minutos
-// Envía recordatorios a usuarios que no han apostado en rondas próximas a cerrarse
+// Cloud Function programada que se ejecuta cada 30 minutos.
+// Envía recordatorios cada 2 horas a usuarios sin apuesta durante el día del cierre.
 export const sendDeadlineReminders = functions.pubsub
   .schedule('every 30 minutes')
   .timeZone('Europe/Madrid')
@@ -225,25 +248,41 @@ export const sendDeadlineReminders = functions.pubsub
 
     try {
       const now = admin.firestore.Timestamp.now();
-      const oneAndHalfHoursFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + 1.5 * 60 * 60 * 1000);
-      const twoHoursFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + 2 * 60 * 60 * 1000);
+      const nowDate = now.toDate();
+      const nowMadridParts = madridDateParts(nowDate);
+      const nowMadridHour = Number(nowMadridParts.hour);
+      const todayMadridKey = madridDateKey(nowDate);
+      const twoHoursAgo = admin.firestore.Timestamp.fromMillis(now.toMillis() - 2 * 60 * 60 * 1000);
 
-      // Buscar rondas visibles con deadline entre 1.5 y 2 horas desde ahora
-      // (ventana de 30 minutos = se envía solo una vez por ronda)
-      const roundsSnapshot = await db.collection('rounds')
-        .where('isVisible', '==', true)
-        .where('deadline', '>=', oneAndHalfHoursFromNow)
-        .where('deadline', '<=', twoHoursFromNow)
-        .get();
-
-      if (roundsSnapshot.empty) {
-        console.log('✅ No hay rondas próximas a cerrarse en las próximas 2 horas');
+      if (nowMadridHour < 10) {
+        console.log('✅ Antes de las 10:00 en España, no se envían recordatorios');
         return null;
       }
 
-      console.log(`📊 Encontradas ${roundsSnapshot.size} rondas próximas a cerrarse`);
+      // Buscar rondas visibles futuras y filtrar en código las que cierran hoy en España.
+      const roundsSnapshot = await db.collection('rounds')
+        .where('isVisible', '==', true)
+        .where('deadline', '>=', now)
+        .get();
 
-      for (const roundDoc of roundsSnapshot.docs) {
+      if (roundsSnapshot.empty) {
+        console.log('✅ No hay rondas visibles futuras');
+        return null;
+      }
+
+      const roundsToProcess = roundsSnapshot.docs.filter((roundDoc) => {
+        const roundData = roundDoc.data();
+        return roundData.status === 'open' && madridDateKey(roundData.deadline.toDate()) === todayMadridKey;
+      });
+
+      if (roundsToProcess.length === 0) {
+        console.log('✅ No hay rondas abiertas que cierren hoy en España');
+        return null;
+      }
+
+      console.log(`📊 Encontradas ${roundsToProcess.length} rondas abiertas que cierran hoy en España`);
+
+      for (const roundDoc of roundsToProcess) {
         const roundData = roundDoc.data();
         const roundId = roundDoc.id;
         const communityId = roundData.communityId;
@@ -270,39 +309,52 @@ export const sendDeadlineReminders = functions.pubsub
 
         // Obtener todos los usuarios de la comunidad
         const usersSnapshot = await db.collection('users').get();
-        const membersWithoutBets: Array<{ id: string; tokens: string[]; nick: string }> = [];
+        const membersWithoutBets: Array<{
+          id: string;
+          tokens: string[];
+          nick: string;
+          reminderRef: admin.firestore.DocumentReference;
+        }> = [];
 
-        usersSnapshot.forEach((userDoc) => {
+        for (const userDoc of usersSnapshot.docs) {
           const userData = userDoc.data();
           const userId = userDoc.id;
-          
+          const tokens = userData.fcmTokens || [];
+
           // Solo usuarios que pertenecen a esta comunidad Y no han apostado
           if (
             userData.communities &&
             userData.communities[communityId] &&
             !userIdsWithBets.has(userId) &&
-            allowsNotification(userData, 'deadlineReminders')
+            allowsNotification(userData, 'deadlineReminders') &&
+            tokens.length > 0
           ) {
-            const tokens = userData.fcmTokens || [];
-            if (tokens.length > 0) {
+            const reminderRef = db.collection('notificationReminderLogs').doc(`${roundId}_${userId}`);
+            const reminderDoc = await reminderRef.get();
+            const lastSentAt = reminderDoc.exists
+              ? reminderDoc.data()?.lastSentAt as admin.firestore.Timestamp | undefined
+              : undefined;
+
+            if (!lastSentAt || lastSentAt.toMillis() <= twoHoursAgo.toMillis()) {
               membersWithoutBets.push({
                 id: userId,
-                tokens: tokens,
+                tokens,
                 nick: userData.nick || 'Usuario',
+                reminderRef,
               });
             }
           }
-        });
+        }
 
         if (membersWithoutBets.length === 0) {
-          console.log(`✅ Todos los miembros de la comunidad ya han apostado`);
+          console.log(`✅ No hay miembros pendientes que deban recibir recordatorio ahora`);
           continue;
         }
 
         console.log(`👥 Enviando recordatorios a ${membersWithoutBets.length} usuarios sin apuesta`);
 
         const notificationTitle = '⏰ ¡No apostaste!';
-        const notificationBody = `Faltan menos de 2 horas para finalizar "${roundData.name}" en ${communityName}`;
+        const notificationBody = `Hoy cierra "${roundData.name}" en ${communityName}. Aún estás a tiempo de apostar.`;
 
         let successCount = 0;
         let failureCount = 0;
@@ -329,6 +381,16 @@ export const sendDeadlineReminders = functions.pubsub
               tokens: member.tokens,
               ...message,
             });
+
+            if (response.successCount > 0) {
+              await member.reminderRef.set({
+                userId: member.id,
+                roundId,
+                communityId,
+                lastSentAt: now,
+                updatedAt: now,
+              }, { merge: true });
+            }
 
             // Procesar respuestas individuales por token
             response.responses.forEach((resp, idx) => {
