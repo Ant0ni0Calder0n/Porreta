@@ -558,64 +558,6 @@ const SuperAdminPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Logs de notificaciones */}
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div>
-              <h2 style={{ marginTop: 0, marginBottom: '6px' }}>Logs de Notificaciones</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
-                Últimos 50 intentos de envío. No se guardan tokens, solo totales y errores.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={loadNotificationLogs}
-              disabled={loadingNotificationLogs}
-              style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
-            >
-              {loadingNotificationLogs ? 'Cargando...' : 'Actualizar'}
-            </button>
-          </div>
-
-          {notificationLogs.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-              {loadingNotificationLogs ? 'Cargando logs...' : 'Todavía no hay logs de notificaciones.'}
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
-              {notificationLogs.map(log => (
-                <div
-                  key={log.id}
-                  style={{
-                    padding: '12px',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--bg-secondary)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                    <strong>{notificationTypeLabel(log.type)}</strong>
-                    <span style={{ color: notificationStatusColor(log.status), fontWeight: 600 }}>
-                      {notificationStatusLabel(log.status)}
-                    </span>
-                  </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
-                    <div><strong>Fecha:</strong> {formatOptionalDate(log.createdAt)}</div>
-                    <div><strong>Usuario:</strong> {log.userNick || log.userId || 'Desconocido'}</div>
-                    {(log.communityName || log.roundName) && (
-                      <div><strong>Contexto:</strong> {[log.communityName, log.roundName].filter(Boolean).join(' / ')}</div>
-                    )}
-                    <div><strong>Mensaje:</strong> {log.title} - {log.body}</div>
-                    <div><strong>Tokens:</strong> {log.tokenCount} · <strong>OK:</strong> {log.successCount} · <strong>Fallos:</strong> {log.failureCount}</div>
-                    {log.error && <div><strong>Error:</strong> {log.error}</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
       {/* Modal de edición */}
       {editingCommunity && (
         <div style={{
@@ -905,6 +847,64 @@ const SuperAdminPanel: React.FC = () => {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Logs de notificaciones */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ marginTop: 0, marginBottom: '6px' }}>Logs de Notificaciones</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
+              Últimos 50 intentos de envío. No se guardan tokens, solo totales y errores.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={loadNotificationLogs}
+            disabled={loadingNotificationLogs}
+            style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+          >
+            {loadingNotificationLogs ? 'Cargando...' : 'Actualizar'}
+          </button>
+        </div>
+
+        {notificationLogs.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            {loadingNotificationLogs ? 'Cargando logs...' : 'Todavía no hay logs de notificaciones.'}
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+            {notificationLogs.map(log => (
+              <div
+                key={log.id}
+                style={{
+                  padding: '12px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-secondary)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                  <strong>{notificationTypeLabel(log.type)}</strong>
+                  <span style={{ color: notificationStatusColor(log.status), fontWeight: 600 }}>
+                    {notificationStatusLabel(log.status)}
+                  </span>
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+                  <div><strong>Fecha:</strong> {formatOptionalDate(log.createdAt)}</div>
+                  <div><strong>Usuario:</strong> {log.userNick || log.userId || 'Desconocido'}</div>
+                  {(log.communityName || log.roundName) && (
+                    <div><strong>Contexto:</strong> {[log.communityName, log.roundName].filter(Boolean).join(' / ')}</div>
+                  )}
+                  <div><strong>Mensaje:</strong> {log.title} - {log.body}</div>
+                  <div><strong>Tokens:</strong> {log.tokenCount} · <strong>OK:</strong> {log.successCount} · <strong>Fallos:</strong> {log.failureCount}</div>
+                  {log.error && <div><strong>Error:</strong> {log.error}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Lista de rondas de la comunidad seleccionada */}
