@@ -1,15 +1,8 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+importScripts('/Porreta/firebase-config.js');
 
-// Configuración Firebase (se actualizará con tus valores reales)
-firebase.initializeApp({
-    apiKey: "AIzaSyAeugvkxFv7pk21juKWCeAMpsG2w-pGwzo",
-    authDomain: "porreta-app.firebaseapp.com",
-    projectId: "porreta-app",
-    storageBucket: "porreta-app.firebasestorage.app",
-    messagingSenderId: "377909387939",
-    appId: "1:377909387939:web:1a7c43647046f4667dd516"
-});
+firebase.initializeApp(self.firebaseConfig);
 
 const messaging = firebase.messaging();
 
