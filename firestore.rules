@@ -76,5 +76,11 @@ service cloud.firestore {
       // Solo super admin puede escribir
       allow write: if isSuperAdmin();
     }
+
+    // Logs de notificaciones: solo visibles para superadmin, escritos por Cloud Functions
+    match /notificationLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
   }
 }

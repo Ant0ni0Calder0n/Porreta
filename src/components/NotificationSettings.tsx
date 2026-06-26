@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationSettings as NotificationSettingsType } from '../types';
-import { hasNotificationPermission, requestNotificationPermission, sendTestNotification } from '../utils/notifications';
+import {
+  getNotificationPermissionStatus,
+  NotificationPermissionStatus,
+  requestNotificationPermission,
+  sendTestNotification
+} from '../utils/notifications';
 
 const defaultSettings: NotificationSettingsType = {
   newRounds: true,
@@ -22,8 +27,16 @@ const NotificationSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  const [permissionGranted, setPermissionGranted] = useState(hasNotificationPermission());
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermissionStatus>(getNotificationPermissionStatus());
   const [statusMessage, setStatusMessage] = useState('');
+
+  const permissionGranted = permissionStatus === 'granted';
+
+  useEffect(() => {
+    const updatePermissionStatus = () => setPermissionStatus(getNotificationPermissionStatus());
+    window.addEventListener('focus', updatePermissionStatus);
+    return () => window.removeEventListener('focus', updatePermissionStatus);
+  }, []);
 
   const updateSetting = async (field: keyof NotificationSettingsType, value: boolean) => {
     if (!currentUser) return;
@@ -50,12 +63,25 @@ const NotificationSettings: React.FC = () => {
   const handleEnableNotifications = async () => {
     if (!currentUser) return;
 
+    const currentPermissionStatus = getNotificationPermissionStatus();
+    setPermissionStatus(currentPermissionStatus);
+
+    if (currentPermissionStatus === 'unsupported') {
+      setStatusMessage('Este navegador no soporta notificaciones push. Prueba con Chrome, Edge o Safari actualizado.');
+      return;
+    }
+
+    if (currentPermissionStatus === 'denied') {
+      setStatusMessage('Las notificaciones están bloqueadas. Cambia el permiso en los ajustes del navegador o del sitio, recarga Porreta y pulsa Reactivar notificaciones.');
+      return;
+    }
+
     setRequestingPermission(true);
     setStatusMessage('');
 
     try {
       const enabled = await requestNotificationPermission(currentUser.uid);
-      setPermissionGranted(enabled);
+      setPermissionStatus(getNotificationPermissionStatus());
       setStatusMessage(enabled
         ? 'Notificaciones activadas en este dispositivo'
         : 'No se concedió permiso de notificaciones');
@@ -83,6 +109,37 @@ const NotificationSettings: React.FC = () => {
       setSendingTest(false);
     }
   };
+
+  const permissionTitle = (() => {
+    if (permissionStatus === 'granted') return 'Notificaciones permitidas';
+    if (permissionStatus === 'denied') return 'Notificaciones bloqueadas';
+    if (permissionStatus === 'unsupported') return 'Notificaciones no soportadas';
+    return 'Notificaciones pendientes de activar';
+  })();
+
+  const permissionDescription = (() => {
+    if (permissionStatus === 'granted') {
+      return 'Este dispositivo ya puede recibir avisos. Si cambiaste de móvil, navegador o reinstalaste la app, pulsa Reactivar notificaciones para volver a guardar este dispositivo.';
+    }
+
+    if (permissionStatus === 'denied') {
+      return 'El navegador tiene las notificaciones bloqueadas. Por seguridad, Porreta no puede volver a mostrar el aviso de permiso automáticamente: tienes que desbloquearlo manualmente.';
+    }
+
+    if (permissionStatus === 'unsupported') {
+      return 'Este navegador o modo de navegación no permite notificaciones push. Prueba con la app instalada, Chrome, Edge o Safari actualizado.';
+    }
+
+    return 'Pulsa Activar notificaciones. El móvil o navegador mostrará un aviso propio; debes aceptar ese aviso para que podamos guardar este dispositivo.';
+  })();
+
+  const enableButtonLabel = (() => {
+    if (requestingPermission) return 'Activando...';
+    if (permissionStatus === 'granted') return 'Reactivar notificaciones';
+    if (permissionStatus === 'denied') return 'Ver cómo desbloquear';
+    if (permissionStatus === 'unsupported') return 'No soportado';
+    return 'Activar notificaciones';
+  })();
 
   const options: Array<{
     key: keyof NotificationSettingsType;
@@ -120,15 +177,36 @@ const NotificationSettings: React.FC = () => {
             Configura qué avisos quieres recibir en este dispositivo y usuario.
           </p>
 
+          <div style={{
+            padding: '12px',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            backgroundColor: permissionStatus === 'denied' ? 'rgba(244, 67, 54, 0.08)' : 'var(--bg-secondary)',
+            marginBottom: '16px'
+          }}>
+            <strong style={{ display: 'block', marginBottom: '6px' }}>{permissionTitle}</strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
+              {permissionDescription}
+            </p>
+            {permissionStatus === 'denied' && (
+              <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '10px' }}>
+                <p style={{ margin: '0 0 6px 0' }}><strong>Para desbloquearlo:</strong></p>
+                <p style={{ margin: '0 0 4px 0' }}>Android/Chrome: abre el candado o ajustes del sitio, entra en Permisos y permite Notificaciones.</p>
+                <p style={{ margin: '0 0 4px 0' }}>iPhone/iPad: revisa Ajustes del sistema y los ajustes de Safari o de la app instalada.</p>
+                <p style={{ margin: 0 }}>Ordenador: pulsa el candado junto a la dirección web, permite Notificaciones, recarga Porreta y vuelve a pulsar Reactivar.</p>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
             <button
               type="button"
               className="button"
               onClick={handleEnableNotifications}
-              disabled={requestingPermission}
+              disabled={requestingPermission || permissionStatus === 'unsupported'}
               style={{ width: 'auto', padding: '10px 14px', margin: 0 }}
             >
-              {requestingPermission ? 'Activando...' : permissionGranted ? 'Reactivar notificaciones' : 'Activar notificaciones'}
+              {enableButtonLabel}
             </button>
             <button
               type="button"
@@ -141,7 +219,7 @@ const NotificationSettings: React.FC = () => {
             </button>
           </div>
 
-          {!permissionGranted && (
+          {!permissionGranted && permissionStatus !== 'denied' && permissionStatus !== 'unsupported' && (
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '-6px' }}>
               El navegador todavía no tiene permiso para mostrar notificaciones en este dispositivo.
             </p>

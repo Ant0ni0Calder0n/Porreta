@@ -13,11 +13,12 @@ import {
   Timestamp,
   getDoc,
   setDoc,
-  deleteField
+  deleteField,
+  limit
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Community, Round } from '../types';
+import { Community, NotificationLog, Round } from '../types';
 import CustomAlert from './CustomAlert';
 import CustomConfirm from './CustomConfirm';
 
@@ -27,6 +28,8 @@ const SuperAdminPanel: React.FC = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
+  const [loadingNotificationLogs, setLoadingNotificationLogs] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingCommunity, setEditingCommunity] = useState<Community | null>(null);
   const [editName, setEditName] = useState('');
@@ -53,7 +56,30 @@ const SuperAdminPanel: React.FC = () => {
     }
     loadCommunities();
     loadGlobalConfig();
+    loadNotificationLogs();
   }, [isSuperAdmin, navigate]);
+
+  const loadNotificationLogs = async () => {
+    try {
+      setLoadingNotificationLogs(true);
+      const q = query(
+        collection(db, 'notificationLogs'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+      const snapshot = await getDocs(q);
+      const logsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as NotificationLog[];
+      setNotificationLogs(logsData);
+    } catch (error) {
+      console.error('Error cargando logs de notificaciones:', error);
+      setAlertMessage({ message: 'Error al cargar logs de notificaciones', type: 'error' });
+    } finally {
+      setLoadingNotificationLogs(false);
+    }
+  };
 
   const loadGlobalConfig = async () => {
     try {
@@ -401,6 +427,31 @@ const SuperAdminPanel: React.FC = () => {
     });
   };
 
+  const formatOptionalDate = (timestamp?: Timestamp) => {
+    return timestamp ? formatDate(timestamp) : 'Sin fecha';
+  };
+
+  const notificationTypeLabel = (type: string) => {
+    if (type === 'new_round_visible') return 'Nueva ronda';
+    if (type === 'deadline_reminder') return 'Recordatorio';
+    if (type === 'test_notification') return 'Prueba';
+    return type;
+  };
+
+  const notificationStatusLabel = (status: NotificationLog['status']) => {
+    if (status === 'success') return 'Éxito';
+    if (status === 'partial') return 'Parcial';
+    if (status === 'failure') return 'Fallo';
+    return 'Omitido';
+  };
+
+  const notificationStatusColor = (status: NotificationLog['status']) => {
+    if (status === 'success') return '#4CAF50';
+    if (status === 'partial') return '#FF9800';
+    if (status === 'failure') return '#f44336';
+    return '#9E9E9E';
+  };
+
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -505,6 +556,64 @@ const SuperAdminPanel: React.FC = () => {
             💡 <strong>Nota:</strong> Estos ajustes controlan el acceso a nivel global de la aplicación. 
             Úsalos para mantener la app privada y controlar quién puede registrarse o crear comunidades.
           </div>
+        </div>
+
+        {/* Logs de notificaciones */}
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ marginTop: 0, marginBottom: '6px' }}>Logs de Notificaciones</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
+                Últimos 50 intentos de envío. No se guardan tokens, solo totales y errores.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={loadNotificationLogs}
+              disabled={loadingNotificationLogs}
+              style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+            >
+              {loadingNotificationLogs ? 'Cargando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {notificationLogs.length === 0 ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+              {loadingNotificationLogs ? 'Cargando logs...' : 'Todavía no hay logs de notificaciones.'}
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+              {notificationLogs.map(log => (
+                <div
+                  key={log.id}
+                  style={{
+                    padding: '12px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-secondary)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                    <strong>{notificationTypeLabel(log.type)}</strong>
+                    <span style={{ color: notificationStatusColor(log.status), fontWeight: 600 }}>
+                      {notificationStatusLabel(log.status)}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+                    <div><strong>Fecha:</strong> {formatOptionalDate(log.createdAt)}</div>
+                    <div><strong>Usuario:</strong> {log.userNick || log.userId || 'Desconocido'}</div>
+                    {(log.communityName || log.roundName) && (
+                      <div><strong>Contexto:</strong> {[log.communityName, log.roundName].filter(Boolean).join(' / ')}</div>
+                    )}
+                    <div><strong>Mensaje:</strong> {log.title} - {log.body}</div>
+                    <div><strong>Tokens:</strong> {log.tokenCount} · <strong>OK:</strong> {log.successCount} · <strong>Fallos:</strong> {log.failureCount}</div>
+                    {log.error && <div><strong>Error:</strong> {log.error}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       {/* Modal de edición */}

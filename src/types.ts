@@ -101,3 +101,22 @@ export interface GlobalConfig {
   allowUserRegistration: boolean;
   allowCommunityCreation: boolean;
 }
+
+export interface NotificationLog {
+  id: string;
+  type: string;
+  status: 'success' | 'partial' | 'failure' | 'skipped';
+  createdAt: Timestamp;
+  userId?: string;
+  userNick?: string;
+  communityId?: string;
+  communityName?: string;
+  roundId?: string;
+  roundName?: string;
+  title: string;
+  body: string;
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  error?: string;
+}

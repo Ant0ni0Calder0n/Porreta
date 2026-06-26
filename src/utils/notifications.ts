@@ -7,6 +7,16 @@ import { messaging, db, functions } from '../firebase';
 const VAPID_KEY = 'BG0owZ2spXe7RKBKEoDljfW0wF0YzqXCLBOhj1IVCATZKI-eAcihsw1ua2u1pF7iDbX_VSWbXzHbGcwEqGg0HTg';
 let foregroundListenerReady = false;
 
+export type NotificationPermissionStatus = NotificationPermission | 'unsupported';
+
+export function getNotificationPermissionStatus(): NotificationPermissionStatus {
+  if (!('Notification' in window)) {
+    return 'unsupported';
+  }
+
+  return Notification.permission;
+}
+
 export async function requestNotificationPermission(userId: string): Promise<boolean> {
   try {
     console.log('Solicitando permiso de notificaciones...');
@@ -118,5 +128,5 @@ async function registerFCMToken(userId: string): Promise<void> {
 
 // Verificar si ya se concedieron permisos
 export function hasNotificationPermission(): boolean {
-  return 'Notification' in window && Notification.permission === 'granted';
+  return getNotificationPermissionStatus() === 'granted';
 }

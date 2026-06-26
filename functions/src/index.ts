@@ -7,6 +7,24 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 type NotificationPreference = 'newRounds' | 'deadlineReminders' | 'winnersAndBote';
+type NotificationLogStatus = 'success' | 'partial' | 'failure' | 'skipped';
+
+interface NotificationLogInput {
+  type: string;
+  status: NotificationLogStatus;
+  userId?: string;
+  userNick?: string;
+  communityId?: string;
+  communityName?: string;
+  roundId?: string;
+  roundName?: string;
+  title: string;
+  body: string;
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  error?: string;
+}
 
 const allowsNotification = (userData: admin.firestore.DocumentData, preference: NotificationPreference): boolean => {
   const settings = userData.notificationSettings || {};
@@ -35,6 +53,23 @@ const madridDateKey = (date: Date): string => {
   const parts = madridDateParts(date);
   return `${parts.year}-${parts.month}-${parts.day}`;
 };
+
+const notificationStatusFor = (successCount: number, failureCount: number): NotificationLogStatus => {
+  if (successCount > 0 && failureCount > 0) return 'partial';
+  if (successCount > 0) return 'success';
+  return 'failure';
+};
+
+async function writeNotificationLog(log: NotificationLogInput) {
+  try {
+    await db.collection('notificationLogs').add({
+      ...log,
+      createdAt: admin.firestore.Timestamp.now(),
+    });
+  } catch (error) {
+    console.error('❌ Error guardando log de notificación:', error);
+  }
+}
 
 async function removeInvalidTokens(userId: string, nick: string, tokens: string[], responses: admin.messaging.SendResponse[]) {
   const tokensToRemove: string[] = [];
@@ -74,25 +109,52 @@ export const sendTestNotification = functions.https.onCall(async (_data, context
 
   const userData = userDoc.data()!;
   const tokens: string[] = userData.fcmTokens || [];
+  const testNotificationTitle = '🔔 Prueba de Porreta';
+  const testNotificationBody = 'Si ves esto, tus notificaciones funcionan correctamente.';
 
   if (tokens.length === 0) {
+    await writeNotificationLog({
+      type: 'test_notification',
+      status: 'skipped',
+      userId,
+      userNick: userData.nick || 'Usuario',
+      title: testNotificationTitle,
+      body: testNotificationBody,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      error: 'El usuario no tiene tokens FCM guardados',
+    });
+
     return { successCount: 0, failureCount: 0 };
   }
 
   const response = await messaging.sendEachForMulticast({
     tokens,
     notification: {
-      title: '🔔 Prueba de Porreta',
-      body: 'Si ves esto, tus notificaciones funcionan correctamente.'
+      title: testNotificationTitle,
+      body: testNotificationBody
     },
     data: {
       type: 'test_notification',
-      title: '🔔 Prueba de Porreta',
-      body: 'Si ves esto, tus notificaciones funcionan correctamente.'
+      title: testNotificationTitle,
+      body: testNotificationBody
     }
   });
 
   await removeInvalidTokens(userId, userData.nick || 'Usuario', tokens, response.responses);
+
+  await writeNotificationLog({
+    type: 'test_notification',
+    status: notificationStatusFor(response.successCount, response.failureCount),
+    userId,
+    userNick: userData.nick || 'Usuario',
+    title: testNotificationTitle,
+    body: testNotificationBody,
+    tokenCount: tokens.length,
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+  });
 
   return {
     successCount: response.successCount,
@@ -166,15 +228,34 @@ export const onRoundVisibilityChange = functions.firestore
       let failureCount = 0;
 
       for (const member of communityMembers) {
+        const notificationTitle = '🚀 Nueva ronda!';
+        const notificationBody = `"${after.name}" en ${communityName}. ¡Haz tu apuesta!`;
+
         if (member.tokens.length === 0) {
           console.log(`⚠️ Usuario ${member.nick} no tiene tokens FCM`);
+          await writeNotificationLog({
+            type: 'new_round_visible',
+            status: 'skipped',
+            userId: member.id,
+            userNick: member.nick,
+            communityId,
+            communityName,
+            roundId,
+            roundName: after.name || '',
+            title: notificationTitle,
+            body: notificationBody,
+            tokenCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            error: 'El usuario no tiene tokens FCM guardados',
+          });
           continue;
         }
 
         const message = {
           notification: {
-            title: '🚀 Nueva ronda!',
-            body: `"${after.name}" en ${communityName}. ¡Haz tu apuesta!`,
+            title: notificationTitle,
+            body: notificationBody,
           },
           data: {
             roundId,
@@ -187,6 +268,21 @@ export const onRoundVisibilityChange = functions.firestore
 
         try {
           const response = await messaging.sendEachForMulticast(message);
+          await writeNotificationLog({
+            type: 'new_round_visible',
+            status: notificationStatusFor(response.successCount, response.failureCount),
+            userId: member.id,
+            userNick: member.nick,
+            communityId,
+            communityName,
+            roundId,
+            roundName: after.name || '',
+            title: notificationTitle,
+            body: notificationBody,
+            tokenCount: member.tokens.length,
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+          });
           
           if (response.successCount > 0) {
             successCount += response.successCount;
@@ -227,6 +323,22 @@ export const onRoundVisibilityChange = functions.firestore
         } catch (error) {
           console.error(`❌ Error enviando notificación a ${member.nick}:`, error);
           failureCount += member.tokens.length;
+          await writeNotificationLog({
+            type: 'new_round_visible',
+            status: 'failure',
+            userId: member.id,
+            userNick: member.nick,
+            communityId,
+            communityName,
+            roundId,
+            roundName: after.name || '',
+            title: notificationTitle,
+            body: notificationBody,
+            tokenCount: member.tokens.length,
+            successCount: 0,
+            failureCount: member.tokens.length,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -382,6 +494,22 @@ export const sendDeadlineReminders = functions.pubsub
               ...message,
             });
 
+            await writeNotificationLog({
+              type: 'deadline_reminder',
+              status: notificationStatusFor(response.successCount, response.failureCount),
+              userId: member.id,
+              userNick: member.nick,
+              communityId,
+              communityName,
+              roundId,
+              roundName: roundData.name || '',
+              title: notificationTitle,
+              body: notificationBody,
+              tokenCount: member.tokens.length,
+              successCount: response.successCount,
+              failureCount: response.failureCount,
+            });
+
             if (response.successCount > 0) {
               await member.reminderRef.set({
                 userId: member.id,
@@ -424,6 +552,22 @@ export const sendDeadlineReminders = functions.pubsub
           } catch (error) {
             console.error(`❌ Error enviando recordatorio a ${member.nick}:`, error);
             failureCount += member.tokens.length;
+            await writeNotificationLog({
+              type: 'deadline_reminder',
+              status: 'failure',
+              userId: member.id,
+              userNick: member.nick,
+              communityId,
+              communityName,
+              roundId,
+              roundName: roundData.name || '',
+              title: notificationTitle,
+              body: notificationBody,
+              tokenCount: member.tokens.length,
+              successCount: 0,
+              failureCount: member.tokens.length,
+              error: error instanceof Error ? error.message : String(error),
+            });
           }
         }
 
