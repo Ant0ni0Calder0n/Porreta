@@ -5,7 +5,6 @@ export type UserRole = 'member' | 'admin';
 export interface NotificationSettings {
   newRounds: boolean;
   deadlineReminders: boolean;
-  resultsPublished: boolean;
   winnersAndBote: boolean;
 }
 

@@ -9,7 +9,6 @@ import { hasNotificationPermission, requestNotificationPermission, sendTestNotif
 const defaultSettings: NotificationSettingsType = {
   newRounds: true,
   deadlineReminders: true,
-  resultsPublished: true,
   winnersAndBote: true
 };
 
@@ -101,14 +100,9 @@ const NotificationSettings: React.FC = () => {
       description: 'Avisarme si queda poco tiempo y todavía no he apostado.'
     },
     {
-      key: 'resultsPublished',
-      title: 'Resultados publicados',
-      description: 'Avisarme cuando se publiquen resultados oficiales.'
-    },
-    {
       key: 'winnersAndBote',
       title: 'Ganador o bote',
-      description: 'Avisarme cuando haya ganador, empate de ganadores o bote.'
+      description: 'Avisarme cuando haya ganador o bote.'
     }
   ];
 

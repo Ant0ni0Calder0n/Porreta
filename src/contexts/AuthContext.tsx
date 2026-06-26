@@ -103,7 +103,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       notificationSettings: {
         newRounds: true,
         deadlineReminders: true,
-        resultsPublished: true,
         winnersAndBote: true
       }
     });

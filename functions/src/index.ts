@@ -6,7 +6,7 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-type NotificationPreference = 'newRounds' | 'deadlineReminders' | 'resultsPublished' | 'winnersAndBote';
+type NotificationPreference = 'newRounds' | 'deadlineReminders' | 'winnersAndBote';
 
 const allowsNotification = (userData: admin.firestore.DocumentData, preference: NotificationPreference): boolean => {
   const settings = userData.notificationSettings || {};
