@@ -164,7 +164,9 @@ export const sendTestNotification = functions.https.onCall(async (_data, context
 
 // Cloud Function que se dispara cuando se crea o actualiza una ronda
 // Envía notificaciones cuando la ronda es visible (creación directa o cambio de estado)
-export const onRoundVisibilityChange = functions.firestore
+export const onRoundVisibilityChange = functions
+  .region('europe-southwest1')
+  .firestore
   .document('rounds/{roundId}')
   .onWrite(async (change, context) => {
     const after = change.after.data();
