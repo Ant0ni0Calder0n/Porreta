@@ -213,8 +213,7 @@ const CommunityDashboard: React.FC = () => {
       try {
         await navigator.share({
           title: `Únete a ${community.name} en Porreta`,
-          text: invitation,
-          url: `${window.location.origin}/Porreta/`
+          text: invitation
         });
         return;
       } catch (error) {
@@ -545,7 +544,6 @@ const CommunityDashboard: React.FC = () => {
                   <div style={{ fontSize: '22px', fontWeight: 800 }}>{leader.nick}</div>
                   <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
                     {leader.totalWins} {leader.totalWins === 1 ? 'victoria' : 'victorias'}
-                    {leader.adjustment !== 0 && ` (${leader.calculatedWins} app ${leader.adjustment > 0 ? '+' : ''}${leader.adjustment})`}
                   </div>
                 </div>
 
@@ -563,7 +561,6 @@ const CommunityDashboard: React.FC = () => {
                       <span style={{ fontWeight: 600 }}>{index + 2}. {row.nick}</span>
                       <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
                         {row.totalWins} {row.totalWins === 1 ? 'victoria' : 'victorias'}
-                        {row.adjustment !== 0 && ` (${row.calculatedWins} app ${row.adjustment > 0 ? '+' : ''}${row.adjustment})`}
                       </span>
                     </div>
                   ))}
@@ -659,7 +656,14 @@ const CommunityDashboard: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           {isAdmin && (
-            <button onClick={handleShareInvitation} title="Compartir invitación">↗</button>
+            <button onClick={handleShareInvitation} title="Compartir invitación" aria-label="Compartir invitación">
+              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M8 7.5L16 4M8 16.5L16 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="6" cy="8" r="3" fill="currentColor" />
+                <circle cx="18" cy="3" r="3" fill="currentColor" />
+                <circle cx="18" cy="21" r="3" fill="currentColor" />
+              </svg>
+            </button>
           )}
           <button onClick={() => navigate(-1)}>Volver</button>
         </div>
