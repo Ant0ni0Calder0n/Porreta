@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { Round, Bet } from '../types';
 import CustomAlert from './CustomAlert';
 

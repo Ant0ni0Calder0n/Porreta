@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { Round } from '../types';
 
 interface ResultsNotificationProps {

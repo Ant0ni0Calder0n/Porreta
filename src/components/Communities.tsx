@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { Community, GlobalConfig } from '../types';
 import CustomAlert from './CustomAlert';
 

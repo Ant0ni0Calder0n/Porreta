@@ -16,7 +16,7 @@ import {
   deleteField,
   limit
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { useAuth } from '../contexts/AuthContext';
 import { Community, NotificationLog, Round } from '../types';
 import CustomAlert from './CustomAlert';
@@ -30,6 +30,7 @@ const SuperAdminPanel: React.FC = () => {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
   const [loadingNotificationLogs, setLoadingNotificationLogs] = useState(false);
+  const [notificationLogsLoaded, setNotificationLogsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingCommunity, setEditingCommunity] = useState<Community | null>(null);
   const [editName, setEditName] = useState('');
@@ -56,7 +57,6 @@ const SuperAdminPanel: React.FC = () => {
     }
     loadCommunities();
     loadGlobalConfig();
-    loadNotificationLogs();
   }, [isSuperAdmin, navigate]);
 
   const loadNotificationLogs = async () => {
@@ -73,6 +73,7 @@ const SuperAdminPanel: React.FC = () => {
         ...doc.data()
       })) as NotificationLog[];
       setNotificationLogs(logsData);
+      setNotificationLogsLoaded(true);
     } catch (error) {
       console.error('Error cargando logs de notificaciones:', error);
       setAlertMessage({ message: 'Error al cargar logs de notificaciones', type: 'error' });
@@ -956,7 +957,7 @@ const SuperAdminPanel: React.FC = () => {
           <div>
             <h2 style={{ marginTop: 0, marginBottom: '6px' }}>Logs de Notificaciones</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>
-              Últimos 50 intentos de envío. No se guardan tokens, solo totales y errores.
+              Últimos 50 intentos de envío. No se cargan hasta que pulses el botón.
             </p>
           </div>
           <button
@@ -966,11 +967,15 @@ const SuperAdminPanel: React.FC = () => {
             disabled={loadingNotificationLogs}
             style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
           >
-            {loadingNotificationLogs ? 'Cargando...' : 'Actualizar'}
+            {loadingNotificationLogs ? 'Cargando...' : notificationLogsLoaded ? 'Actualizar' : 'Cargar logs'}
           </button>
         </div>
 
-        {notificationLogs.length === 0 ? (
+        {!notificationLogsLoaded ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            Pulsa Cargar logs cuando quieras revisar notificaciones. Así el panel de comunidades abre más rápido.
+          </p>
+        ) : notificationLogs.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
             {loadingNotificationLogs ? 'Cargando logs...' : 'Todavía no hay logs de notificaciones.'}
           </p>

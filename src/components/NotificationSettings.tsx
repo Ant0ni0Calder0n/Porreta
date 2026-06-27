@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { useAuth } from '../contexts/AuthContext';
 import { NotificationSettings as NotificationSettingsType } from '../types';
 import {

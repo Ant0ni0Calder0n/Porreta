@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebaseDb';
 import { useAuth } from '../contexts/AuthContext';
 import { Round, LiveResult, MatchStatus, MatchResult, Bet } from '../types';
 import CustomAlert from './CustomAlert';

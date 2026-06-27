@@ -6,10 +6,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth } from '../firebase';
 import { User } from '../types';
-import { setupForegroundNotifications } from '../utils/notifications';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -23,6 +21,15 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const getFirestoreTools = async () => {
+  const [{ db }, firestore] = await Promise.all([
+    import('../firebaseDb'),
+    import('firebase/firestore')
+  ]);
+
+  return { db, ...firestore };
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -39,14 +46,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadUserData = async (user: FirebaseUser) => {
     try {
+      const { db, doc, getDoc } = await getFirestoreTools();
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
         setUserData({ uid: user.uid, ...userDoc.data() } as User);
       }
 
-      setupForegroundNotifications().catch(err => {
-        console.error('Error preparando notificaciones en primer plano:', err);
-      });
+      if ('Notification' in window && Notification.permission === 'granted') {
+        import('../utils/notifications').then(({ setupForegroundNotifications }) => {
+          setupForegroundNotifications().catch(err => {
+            console.error('Error preparando notificaciones en primer plano:', err);
+          });
+        });
+      }
     } catch (error) {
       console.error('Error cargando datos usuario:', error);
     }
@@ -64,6 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (user) {
         await loadUserData(user);
         // Actualizar lastSeen en background
+        const { db, doc, updateDoc, serverTimestamp } = await getFirestoreTools();
         updateDoc(doc(db, 'users', user.uid), {
           lastSeen: serverTimestamp()
         }).catch(err => console.error('Error actualizando lastSeen:', err));
@@ -80,9 +93,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && currentUser) {
-        updateDoc(doc(db, 'users', currentUser.uid), {
-          lastSeen: serverTimestamp()
-        }).catch(err => console.error('Error actualizando lastSeen:', err));
+        getFirestoreTools().then(({ db, doc, updateDoc, serverTimestamp }) => {
+          updateDoc(doc(db, 'users', currentUser.uid), {
+            lastSeen: serverTimestamp()
+          }).catch(err => console.error('Error actualizando lastSeen:', err));
+        });
       }
     };
 
@@ -93,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signup = async (email: string, password: string, nick: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+    const { db, doc, setDoc } = await getFirestoreTools();
     
     // Crear documento usuario
     await setDoc(doc(db, 'users', user.uid), {

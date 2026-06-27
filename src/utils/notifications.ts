@@ -1,7 +1,6 @@
-import { httpsCallable } from 'firebase/functions';
-import { getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
-import { messaging, db, functions } from '../firebase';
+import { app } from '../firebase';
+import { db } from '../firebaseDb';
 
 // Clave VAPID pública (obtenida de Firebase Console -> Project Settings -> Cloud Messaging)
 const VAPID_KEY = 'BG0owZ2spXe7RKBKEoDljfW0wF0YzqXCLBOhj1IVCATZKI-eAcihsw1ua2u1pF7iDbX_VSWbXzHbGcwEqGg0HTg';
@@ -50,6 +49,10 @@ export async function setupForegroundNotifications(): Promise<void> {
   }
 
   foregroundListenerReady = true;
+  const [{ getMessaging, onMessage }] = await Promise.all([
+    import('firebase/messaging')
+  ]);
+  const messaging = getMessaging(app);
 
   onMessage(messaging, async (payload) => {
     console.log('📩 Mensaje recibido en primer plano:', payload);
@@ -71,6 +74,8 @@ export async function setupForegroundNotifications(): Promise<void> {
 }
 
 export async function sendTestNotification(): Promise<{ successCount: number; failureCount: number }> {
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
   const callable = httpsCallable<void, { successCount: number; failureCount: number }>(functions, 'sendTestNotification');
   const result = await callable();
   return result.data;
@@ -78,6 +83,9 @@ export async function sendTestNotification(): Promise<{ successCount: number; fa
 
 async function registerFCMToken(userId: string): Promise<void> {
   try {
+    const { getMessaging, getToken } = await import('firebase/messaging');
+    const messaging = getMessaging(app);
+
     // Registrar el Service Worker manualmente
     const registration = await navigator.serviceWorker.register('/Porreta/firebase-messaging-sw.js', {
       scope: '/Porreta/'
