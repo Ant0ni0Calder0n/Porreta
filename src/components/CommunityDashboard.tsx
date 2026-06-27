@@ -546,18 +546,7 @@ const CommunityDashboard: React.FC = () => {
                   color: 'var(--text-secondary)'
                 }}
               >
-                {loadingMoreFinished ? (
-                  '⏳ Cargando más rondas...'
-                ) : (
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={() => loadFinishedRounds(true)}
-                    style={{ width: 'auto', padding: '10px 16px', margin: 0 }}
-                  >
-                    Cargar más jornadas
-                  </button>
-                )}
+                {loadingMoreFinished ? '⏳ Cargando más rondas...' : 'Sigue bajando para cargar más jornadas'}
               </div>
             )}
 
