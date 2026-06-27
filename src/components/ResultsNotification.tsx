@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebaseDb';
 import { Round } from '../types';
 
@@ -46,7 +46,9 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       const roundsQuery = query(
         collection(db, 'rounds'),
         where('communityId', '==', communityId),
-        where('status', '==', 'results_posted')
+        where('status', '==', 'results_posted'),
+        orderBy('resultsPublishedAt', 'desc'),
+        limit(20)
       );
       
       const roundsSnapshot = await getDocs(roundsQuery);

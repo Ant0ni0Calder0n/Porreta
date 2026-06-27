@@ -65,6 +65,8 @@ const CommunityDashboard: React.FC = () => {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   
   const isAdmin = userData?.communities[communityId || ''] === 'admin';
+  const RECENT_CLOSED_DAYS = 4;
+  const FINISHED_PAGE_SIZE = 10;
 
   useEffect(() => {
     loadData();
@@ -99,14 +101,17 @@ const CommunityDashboard: React.FC = () => {
         setDescription(communityData.description || '');
       }
 
-      // Cargar rondas
+      const recentClosedCutoff = Timestamp.fromMillis(Date.now() - RECENT_CLOSED_DAYS * 24 * 60 * 60 * 1000);
+
+      // Cargar solo rondas visibles en la pestaña Activas: futuras o cerradas recientemente.
       const q = query(
         collection(db, 'rounds'),
         where('communityId', '==', communityId),
-        orderBy('createdAt', 'desc')
+        where('deadline', '>=', recentClosedCutoff),
+        orderBy('deadline', 'asc')
       );
       const querySnapshot = await getDocs(q);
-      console.log('📊 Rondas encontradas:', querySnapshot.size);
+      console.log('📊 Rondas activas/recientes encontradas:', querySnapshot.size);
       
       let roundsData: Round[] = [];
       querySnapshot.forEach((doc) => {
@@ -118,45 +123,52 @@ const CommunityDashboard: React.FC = () => {
         roundsData = roundsData.filter(round => round.isVisible !== false);
       }
 
-      // Ordenar por deadline ascendente (más cercana primero)
-      roundsData.sort((a, b) => a.deadline.toMillis() - b.deadline.toMillis());
-
       setRounds(roundsData);
-
-      // Cargar contador de apuestas por cada ronda y verificar apuestas del usuario
-      const countsMap: { [roundId: string]: number } = {};
-      const userBetsMap: { [roundId: string]: boolean } = {};
-      
-      for (const round of roundsData) {
-        // Contar total de apuestas
-        const betsQuery = query(
-          collection(db, 'bets'),
-          where('roundId', '==', round.id),
-          where('communityId', '==', communityId)
-        );
-        const betsSnapshot = await getDocs(betsQuery);
-        countsMap[round.id] = betsSnapshot.size;
-        
-        // Verificar si el usuario actual ya apostó
-        if (userData?.uid) {
-          const userBetQuery = query(
-            collection(db, 'bets'),
-            where('roundId', '==', round.id),
-            where('communityId', '==', communityId),
-            where('userId', '==', userData.uid)
-          );
-          const userBetSnapshot = await getDocs(userBetQuery);
-          userBetsMap[round.id] = !userBetSnapshot.empty;
-        }
-      }
-      
-      setBetsCount(countsMap);
-      setUserBets(userBetsMap);
+      await loadBetSummaries(roundsData, {}, {});
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadBetSummaries = async (
+    roundsToLoad: Round[],
+    baseCounts: { [roundId: string]: number } = betsCount,
+    baseUserBets: { [roundId: string]: boolean } = userBets
+  ) => {
+    if (!communityId || roundsToLoad.length === 0) return;
+
+    const countsMap: { [roundId: string]: number } = { ...baseCounts };
+    const userBetsMap: { [roundId: string]: boolean } = { ...baseUserBets };
+    const roundIds = roundsToLoad.map(round => round.id);
+
+    roundIds.forEach(roundId => {
+      countsMap[roundId] = 0;
+      userBetsMap[roundId] = false;
+    });
+
+    for (let i = 0; i < roundIds.length; i += 30) {
+      const chunk = roundIds.slice(i, i + 30);
+      const betsQuery = query(
+        collection(db, 'bets'),
+        where('communityId', '==', communityId),
+        where('roundId', 'in', chunk)
+      );
+      const betsSnapshot = await getDocs(betsQuery);
+
+      betsSnapshot.forEach((betDoc) => {
+        const bet = betDoc.data();
+        const roundId = bet.roundId;
+        countsMap[roundId] = (countsMap[roundId] || 0) + 1;
+        if (bet.userId === userData?.uid) {
+          userBetsMap[roundId] = true;
+        }
+      });
+    }
+
+    setBetsCount(countsMap);
+    setUserBets(userBetsMap);
   };
 
   // Cargar rondas finalizadas con paginación
@@ -166,14 +178,14 @@ const CommunityDashboard: React.FC = () => {
     setLoadingMoreFinished(true);
     
     try {
-      const FINISHED_PAGE_SIZE = 10;
+      const recentClosedCutoff = Timestamp.fromMillis(Date.now() - RECENT_CLOSED_DAYS * 24 * 60 * 60 * 1000);
       
-      // Query base: rondas finalizadas (results_posted) ordenadas por fecha de publicación descendente
+      // Query base: rondas antiguas, paginadas de 10 en 10.
       let q = query(
         collection(db, 'rounds'),
         where('communityId', '==', communityId),
-        where('status', '==', 'results_posted'),
-        orderBy('resultsPublishedAt', 'desc'),
+        where('deadline', '<', recentClosedCutoff),
+        orderBy('deadline', 'desc'),
         limit(FINISHED_PAGE_SIZE)
       );
 
@@ -182,8 +194,8 @@ const CommunityDashboard: React.FC = () => {
         q = query(
           collection(db, 'rounds'),
           where('communityId', '==', communityId),
-          where('status', '==', 'results_posted'),
-          orderBy('resultsPublishedAt', 'desc'),
+          where('deadline', '<', recentClosedCutoff),
+          orderBy('deadline', 'desc'),
           startAfter(lastFinishedDoc),
           limit(FINISHED_PAGE_SIZE)
         );
@@ -197,20 +209,9 @@ const CommunityDashboard: React.FC = () => {
         return;
       }
 
-      const newRounds: Round[] = [];
+      let newRounds: Round[] = [];
       querySnapshot.forEach((doc) => {
-        const round = { id: doc.id, ...doc.data() } as Round;
-        
-        // Filtrar solo las que tienen más de 7 días
-        if (round.resultsPublishedAt) {
-          const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-          if (daysSincePublished >= 7) {
-            newRounds.push(round);
-          }
-        } else {
-          // Rondas antiguas sin timestamp (backward compatibility)
-          newRounds.push(round);
-        }
+        newRounds.push({ id: doc.id, ...doc.data() } as Round);
       });
 
       // Filtrar rondas ocultas si el usuario NO es admin
@@ -231,27 +232,7 @@ const CommunityDashboard: React.FC = () => {
       setHasMoreFinished(querySnapshot.size === FINISHED_PAGE_SIZE);
 
       // Cargar contador de apuestas para las nuevas rondas
-      const countsMap: { [roundId: string]: number } = { ...betsCount };
-      const userBetsMap: { [roundId: string]: boolean } = { ...userBets };
-      
-      for (const round of visibleRounds) {
-        // Solo cargar si no tenemos los datos ya
-        if (countsMap[round.id] === undefined) {
-          const betsQuery = query(
-            collection(db, 'bets'),
-            where('roundId', '==', round.id),
-            where('communityId', '==', communityId)
-          );
-          const betsSnapshot = await getDocs(betsQuery);
-          countsMap[round.id] = betsSnapshot.size;
-
-          const userHasBet = betsSnapshot.docs.some(doc => doc.data().userId === userData?.uid);
-          userBetsMap[round.id] = userHasBet;
-        }
-      }
-
-      setBetsCount(countsMap);
-      setUserBets(userBetsMap);
+      await loadBetSummaries(visibleRounds);
 
     } catch (error) {
       console.error('Error cargando rondas finalizadas:', error);
@@ -359,33 +340,10 @@ const CommunityDashboard: React.FC = () => {
     );
   };
 
-  // Filtrar rondas según la pestaña activa
-  const filteredRounds = activeTab === 'active' 
-    ? rounds.filter(round => {
-        // Activas: open, closed, o results_posted de hace menos de 7 días
-        if (round.status === 'open' || round.status === 'closed') {
-          return true;
-        }
-        
-        // Si tiene resultados publicados, verificar si hace menos de 7 días
-        if (round.status === 'results_posted' && round.resultsPublishedAt) {
-          const daysSincePublished = (Date.now() - round.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-          return daysSincePublished < 7;
-        }
-        
-        return false;
-      })
-    : finishedRounds; // Para finalizadas, usar el array con lazy loading
+  const filteredRounds = activeTab === 'active' ? rounds : finishedRounds;
 
   // Calcular contadores para las pestañas
-  const activeCount = rounds.filter(r => {
-    if (r.status === 'open' || r.status === 'closed') return true;
-    if (r.status === 'results_posted' && r.resultsPublishedAt) {
-      const daysSincePublished = (Date.now() - r.resultsPublishedAt.toMillis()) / (1000 * 60 * 60 * 24);
-      return daysSincePublished < 7;
-    }
-    return false;
-  }).length;
+  const activeCount = rounds.length;
 
   // Para finalizadas, mostrar el contador de lo cargado + indicador si hay más
   const finishedCountDisplay = hasMoreFinished ? `${finishedRounds.length}+` : finishedRounds.length.toString();
@@ -588,7 +546,18 @@ const CommunityDashboard: React.FC = () => {
                   color: 'var(--text-secondary)'
                 }}
               >
-                {loadingMoreFinished && '⏳ Cargando más rondas...'}
+                {loadingMoreFinished ? (
+                  '⏳ Cargando más rondas...'
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => loadFinishedRounds(true)}
+                    style={{ width: 'auto', padding: '10px 16px', margin: 0 }}
+                  >
+                    Cargar más jornadas
+                  </button>
+                )}
               </div>
             )}
 
