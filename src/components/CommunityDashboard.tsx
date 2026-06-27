@@ -204,7 +204,7 @@ const CommunityDashboard: React.FC = () => {
       }
     })();
     const invitation = [
-      `Únete a Porreta: ${window.location.origin}/Porreta/`,
+      `Únete a Porreta: ${window.location.origin}/Porreta/communities`,
       `Comunidad: ${community.name}`,
       password ? `Contraseña: ${password}` : null
     ].filter(Boolean).join('\n');
