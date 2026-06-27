@@ -7,6 +7,13 @@ import { Round, Community } from '../types';
 import ResultsNotification from './ResultsNotification';
 import CustomAlert from './CustomAlert';
 
+type RankingRow = {
+  nick: string;
+  calculatedWins: number;
+  adjustment: number;
+  totalWins: number;
+};
+
 // Función para formatear el tiempo restante hasta el deadline
 const formatTimeRemaining = (deadline: Timestamp): { text: string; color: string; icon: string } => {
   const now = new Date();
@@ -53,6 +60,15 @@ const CommunityDashboard: React.FC = () => {
   const [editingDescription, setEditingDescription] = useState(false);
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
+  const [editingBote, setEditingBote] = useState(false);
+  const [boteAmount, setBoteAmount] = useState('0');
+  const [botePerRound, setBotePerRound] = useState('0');
+  const [savingBote, setSavingBote] = useState(false);
+  const [rankingRows, setRankingRows] = useState<RankingRow[]>([]);
+  const [rankingAdjustmentDrafts, setRankingAdjustmentDrafts] = useState<Record<string, string>>({});
+  const [newRankingNick, setNewRankingNick] = useState('');
+  const [newRankingWins, setNewRankingWins] = useState('0');
+  const [savingRanking, setSavingRanking] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'finished'>('active');
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   
@@ -85,8 +101,6 @@ const CommunityDashboard: React.FC = () => {
   const loadData = async () => {
     if (!communityId) return;
 
-    console.log('🔄 Cargando datos para comunidad:', communityId);
-    
     try {
       // Cargar comunidad
       const communityDoc = await getDoc(doc(db, 'communities', communityId));
@@ -99,6 +113,9 @@ const CommunityDashboard: React.FC = () => {
         }
         setCommunity(communityData);
         setDescription(communityData.description || '');
+        setBoteAmount(String(communityData.boteAmount || 0));
+        setBotePerRound(String(communityData.botePerRound || 0));
+        await loadRanking(communityData.rankingAdjustments || {});
       }
 
       const recentClosedCutoff = Timestamp.fromMillis(Date.now() - RECENT_CLOSED_DAYS * 24 * 60 * 60 * 1000);
@@ -111,7 +128,6 @@ const CommunityDashboard: React.FC = () => {
         orderBy('deadline', 'asc')
       );
       const querySnapshot = await getDocs(q);
-      console.log('📊 Rondas activas/recientes encontradas:', querySnapshot.size);
       
       let roundsData: Round[] = [];
       querySnapshot.forEach((doc) => {
@@ -130,6 +146,133 @@ const CommunityDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadRanking = async (adjustments: Record<string, number> = community?.rankingAdjustments || {}) => {
+    if (!communityId) return;
+
+    const winsByNick: Record<string, number> = {};
+    const roundsQuery = query(
+      collection(db, 'rounds'),
+      where('communityId', '==', communityId),
+      where('status', '==', 'results_posted')
+    );
+    const roundsSnapshot = await getDocs(roundsQuery);
+
+    roundsSnapshot.forEach((roundDoc) => {
+      const round = roundDoc.data() as Round;
+      if (!round.winnerNick || round.winnerNick === 'BOTE') return;
+
+      const winnerNicks = round.winnerNick
+        .split(',')
+        .map(nick => nick.trim())
+        .filter(Boolean);
+
+      winnerNicks.forEach((nick) => {
+        winsByNick[nick] = (winsByNick[nick] || 0) + 1;
+      });
+    });
+
+    const allNicks = new Set([...Object.keys(winsByNick), ...Object.keys(adjustments)]);
+    const rows = Array.from(allNicks)
+      .map((nick) => {
+        const calculatedWins = winsByNick[nick] || 0;
+        const adjustment = adjustments[nick] || 0;
+        return {
+          nick,
+          calculatedWins,
+          adjustment,
+          totalWins: calculatedWins + adjustment
+        };
+      })
+      .filter(row => row.calculatedWins > 0 || row.adjustment !== 0 || row.totalWins > 0)
+      .sort((a, b) => b.totalWins - a.totalWins || a.nick.localeCompare(b.nick));
+
+    setRankingRows(rows);
+    setRankingAdjustmentDrafts(Object.fromEntries(rows.map(row => [row.nick, String(row.adjustment)])));
+  };
+
+  const handleCopyInvitation = async () => {
+    if (!community) return;
+
+    const password = (() => {
+      try {
+        return atob(community.passwordHash);
+      } catch {
+        return '';
+      }
+    })();
+    const invitation = [
+      `Únete a Porreta: ${window.location.origin}/Porreta/`,
+      `Comunidad: ${community.name}`,
+      password ? `Contraseña: ${password}` : null
+    ].filter(Boolean).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(invitation);
+      setAlertMessage({ message: 'Invitación copiada', type: 'success' });
+    } catch {
+      setAlertMessage({ message: invitation, type: 'info' });
+    }
+  };
+
+  const handleSaveBote = async () => {
+    if (!communityId || !community || !isAdmin) return;
+
+    const nextBoteAmount = Number(boteAmount) || 0;
+    const nextBotePerRound = Number(botePerRound) || 0;
+    setSavingBote(true);
+
+    try {
+      await updateDoc(doc(db, 'communities', communityId), {
+        boteAmount: nextBoteAmount,
+        botePerRound: nextBotePerRound
+      });
+      setCommunity({ ...community, boteAmount: nextBoteAmount, botePerRound: nextBotePerRound });
+      setEditingBote(false);
+      setAlertMessage({ message: 'Bote actualizado', type: 'success' });
+    } catch (error) {
+      console.error('Error guardando bote:', error);
+      setAlertMessage({ message: 'Error al guardar el bote', type: 'error' });
+    } finally {
+      setSavingBote(false);
+    }
+  };
+
+  const saveRankingAdjustment = async (nick: string, rawValue: string) => {
+    if (!communityId || !community || !isSuperAdmin) return;
+
+    const adjustment = Number(rawValue) || 0;
+    const nextAdjustments = { ...(community.rankingAdjustments || {}) };
+    if (adjustment === 0) {
+      delete nextAdjustments[nick];
+    } else {
+      nextAdjustments[nick] = adjustment;
+    }
+
+    setSavingRanking(true);
+    try {
+      await updateDoc(doc(db, 'communities', communityId), {
+        rankingAdjustments: nextAdjustments
+      });
+      const nextCommunity = { ...community, rankingAdjustments: nextAdjustments };
+      setCommunity(nextCommunity);
+      await loadRanking(nextAdjustments);
+    } catch (error) {
+      console.error('Error guardando ranking:', error);
+      setAlertMessage({ message: 'Error al guardar el ranking', type: 'error' });
+    } finally {
+      setSavingRanking(false);
+    }
+  };
+
+  const addManualRankingEntry = async () => {
+    const nick = newRankingNick.trim();
+    if (!nick) return;
+
+    await saveRankingAdjustment(nick, newRankingWins);
+    setNewRankingNick('');
+    setNewRankingWins('0');
   };
 
   const loadBetSummaries = async (
@@ -345,9 +488,6 @@ const CommunityDashboard: React.FC = () => {
   // Calcular contadores para las pestañas
   const activeCount = rounds.length;
 
-  // Para finalizadas, mostrar el contador de lo cargado + indicador si hay más
-  const finishedCountDisplay = hasMoreFinished ? `${finishedRounds.length}+` : finishedRounds.length.toString();
-
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -423,6 +563,151 @@ const CommunityDashboard: React.FC = () => {
           )}
         </div>
 
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#666' }}>Bote</h3>
+            {isAdmin && !editingBote && (
+              <button
+                className="button button-secondary"
+                onClick={() => setEditingBote(true)}
+                style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', marginTop: 0 }}
+              >
+                Editar
+              </button>
+            )}
+          </div>
+
+          {editingBote ? (
+            <div>
+              <label className="label">Bote acumulado (€)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input"
+                value={boteAmount}
+                onChange={(event) => setBoteAmount(event.target.value)}
+                disabled={savingBote}
+              />
+              <label className="label">Euros que se suman por jornada visible</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input"
+                value={botePerRound}
+                onChange={(event) => setBotePerRound(event.target.value)}
+                disabled={savingBote}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="button" onClick={handleSaveBote} disabled={savingBote} style={{ flex: 1 }}>
+                  {savingBote ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  className="button button-secondary"
+                  onClick={() => {
+                    setBoteAmount(String(community.boteAmount || 0));
+                    setBotePerRound(String(community.botePerRound || 0));
+                    setEditingBote(false);
+                  }}
+                  disabled={savingBote}
+                  style={{ flex: 1 }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>
+                {(community.boteAmount || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
+              </p>
+              <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Se suman {(community.botePerRound || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} € al crear una jornada visible.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, fontSize: '16px', color: '#666' }}>Ranking de jornadas ganadas</h3>
+          {rankingRows.length === 0 ? (
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>Todavía no hay jornadas ganadas.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {rankingRows.map((row, index) => (
+                <div key={row.nick} style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600 }}>
+                    {index + 1}. {row.nick}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    {row.totalWins} {row.totalWins === 1 ? 'victoria' : 'victorias'}
+                    {row.adjustment !== 0 && ` (${row.calculatedWins} app ${row.adjustment > 0 ? '+' : ''}${row.adjustment})`}
+                  </span>
+                  {isSuperAdmin && (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        className="input"
+                        value={rankingAdjustmentDrafts[row.nick] ?? '0'}
+                        onChange={(event) => setRankingAdjustmentDrafts(prev => ({ ...prev, [row.nick]: event.target.value }))}
+                        disabled={savingRanking}
+                        title="Ajuste manual sobre victorias calculadas"
+                        style={{ width: '80px', margin: 0, padding: '6px 8px' }}
+                      />
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => saveRankingAdjustment(row.nick, rankingAdjustmentDrafts[row.nick] ?? '0')}
+                        disabled={savingRanking}
+                        style={{ width: 'auto', padding: '6px 10px', margin: 0, fontSize: '13px' }}
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isSuperAdmin && (
+            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+              <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Ajustes históricos: escribe victorias manuales para jugadores anteriores a la app.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Nick"
+                  value={newRankingNick}
+                  onChange={(event) => setNewRankingNick(event.target.value)}
+                  disabled={savingRanking}
+                  style={{ flex: '1 1 160px', margin: 0 }}
+                />
+                <input
+                  type="number"
+                  className="input"
+                  value={newRankingWins}
+                  onChange={(event) => setNewRankingWins(event.target.value)}
+                  disabled={savingRanking}
+                  style={{ width: '110px', margin: 0 }}
+                />
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={addManualRankingEntry}
+                  disabled={savingRanking || !newRankingNick.trim()}
+                  style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+                >
+                  Añadir
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Solo el admin puede crear rondas */}
         {isAdmin && (
           <div className="card">
@@ -431,6 +716,14 @@ const CommunityDashboard: React.FC = () => {
               onClick={() => navigate(`/community/${communityId}/create-round`)}
             >
               Crear Nueva Ronda
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={handleCopyInvitation}
+              style={{ width: 'auto', padding: '8px 12px', margin: '8px 0 0 0', fontSize: '14px' }}
+            >
+              Copiar invitación
             </button>
           </div>
         )}
@@ -470,7 +763,7 @@ const CommunityDashboard: React.FC = () => {
                 borderBottom: activeTab === 'finished' ? '3px solid #1976d2' : '3px solid transparent'
               }}
             >
-              ✅ Finalizadas ({finishedCountDisplay})
+              ✅ Finalizadas
             </button>
           </div>
         </div>

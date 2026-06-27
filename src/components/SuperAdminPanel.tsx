@@ -285,14 +285,10 @@ const SuperAdminPanel: React.FC = () => {
       const roundsQuery = query(collection(db, 'rounds'), where('communityId', '==', community.id));
       const roundsSnapshot = await getDocs(roundsQuery);
       
-      console.log(`Eliminando ${roundsSnapshot.size} rondas...`);
-      
       // 2. Por cada ronda, eliminar sus apuestas
       for (const roundDoc of roundsSnapshot.docs) {
         const betsQuery = query(collection(db, 'bets'), where('roundId', '==', roundDoc.id));
         const betsSnapshot = await getDocs(betsQuery);
-        
-        console.log(`Ronda ${roundDoc.id}: ${betsSnapshot.size} apuestas`);
         
         // Eliminar apuestas en batches de 500
         const betsToDelete = betsSnapshot.docs;
@@ -323,8 +319,6 @@ const SuperAdminPanel: React.FC = () => {
           usersToUpdate.push(userDoc.id);
         }
       });
-
-      console.log(`Eliminando referencias de ${usersToUpdate.length} usuarios...`);
 
       // Actualizar usuarios en batches de 500
       for (let i = 0; i < usersToUpdate.length; i += 500) {
@@ -383,8 +377,6 @@ const SuperAdminPanel: React.FC = () => {
       // 1. Eliminar todas las apuestas de esta ronda
       const betsQuery = query(collection(db, 'bets'), where('roundId', '==', round.id));
       const betsSnapshot = await getDocs(betsQuery);
-      
-      console.log(`Eliminando ${betsSnapshot.size} apuestas de la ronda ${round.id}...`);
       
       // Eliminar apuestas en batches de 500
       const betsToDelete = betsSnapshot.docs;

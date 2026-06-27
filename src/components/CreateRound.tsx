@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, increment, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseDb';
-import { Match, MatchType } from '../types';
+import { Community, Match, MatchType } from '../types';
 
 const CreateRound: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
@@ -16,8 +16,21 @@ const CreateRound: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([
     { homeTeam: '', awayTeam: '', type: 'exact' }
   ]);
+  const [community, setCommunity] = useState<Community | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCommunity = async () => {
+      if (!communityId) return;
+      const communityDoc = await getDoc(doc(db, 'communities', communityId));
+      if (communityDoc.exists()) {
+        setCommunity({ id: communityDoc.id, ...communityDoc.data() } as Community);
+      }
+    };
+
+    loadCommunity().catch(() => undefined);
+  }, [communityId]);
 
   const handleMatchChange = (index: number, field: 'homeTeam' | 'awayTeam' | 'type', value: string) => {
     const newMatches = [...matches];
@@ -78,7 +91,7 @@ const CreateRound: React.FC = () => {
     setLoading(true);
 
     try {
-      const roundDoc = await addDoc(collection(db, 'rounds'), {
+      await addDoc(collection(db, 'rounds'), {
         communityId,
         createdBy: currentUser.uid,
         createdAt: new Date(),
@@ -92,9 +105,13 @@ const CreateRound: React.FC = () => {
         status: 'open',
         isVisible: isVisible
       });
-      
-      console.log('✅ Ronda creada con ID:', roundDoc.id);
-      console.log('📍 CommunityId:', communityId);
+
+      const botePerRound = community?.botePerRound || 0;
+      if (isVisible && botePerRound > 0) {
+        await updateDoc(doc(db, 'communities', communityId), {
+          boteAmount: increment(botePerRound)
+        });
+      }
 
       // Navegar de vuelta sin replace
       navigate(`/community/${communityId}`, { replace: true });

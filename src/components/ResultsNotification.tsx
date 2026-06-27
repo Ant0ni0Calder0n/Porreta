@@ -24,7 +24,9 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
       audio.volume = 0.8;
       await audio.play();
     } catch (err) {
-      console.log('No se pudo reproducir el sonido:', err);
+      if (import.meta.env.DEV) {
+        console.info('No se pudo reproducir el sonido:', err);
+      }
     }
     
     // Vibrar el dispositivo (independientemente del sonido)
@@ -94,8 +96,6 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
         await updateDoc(doc(db, 'users', currentUser.uid), {
           seenResults: cleanedSeenResults
         });
-        const eliminados = Object.keys(seenResults).length - Object.keys(cleanedSeenResults).length;
-        console.log(`🧹 Limpieza automática: ${eliminados} rondas eliminadas`);
       }
 
       // Filtrar rondas que el usuario NO ha visto (usar los resultados limpios)
@@ -140,8 +140,6 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
         seenResults: updatedSeenResults
       });
 
-      console.log(`✅ ${newResults.length} resultado(s) marcado(s) como visto(s)`);
-
     } catch (error) {
       console.error('Error guardando resultados vistos:', error);
     }
@@ -181,8 +179,7 @@ const ResultsNotification: React.FC<ResultsNotificationProps> = ({ communityId }
         {newResults.map((round) => {
           const isBote = round.winnerNick === 'BOTE';
           const isMultipleWinners = !isBote && round.winnerNick?.includes(',');
-          const isWinner = round.winnerId === currentUser?.uid || 
-                          (isMultipleWinners && round.winnerNick?.includes(currentUser?.uid || ''));
+          const isWinner = round.winnerId === currentUser?.uid || round.winnerIds?.includes(currentUser?.uid || '');
           
           return (
             <div key={round.id} style={{

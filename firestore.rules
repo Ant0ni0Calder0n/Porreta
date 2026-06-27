@@ -56,7 +56,7 @@ service cloud.firestore {
       allow create: if isSafeCommunityCreate();
       allow update: if isSuperAdmin() || 
                       (isCommunityAdmin(communityId) &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'passwordHash'])) ||
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'passwordHash', 'boteAmount', 'botePerRound'])) ||
                       (isCommunityMember(communityId) && 
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersCount']));
       allow delete: if isSuperAdmin();

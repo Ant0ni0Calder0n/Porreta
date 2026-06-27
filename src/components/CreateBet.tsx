@@ -166,8 +166,6 @@ const CreateBet: React.FC = () => {
         ...(existingBet ? {} : { createdAt: new Date() })
       }, { merge: true });
 
-      console.log('✅ Apuesta guardada para roundId:', roundId);
-
       // Navegar de vuelta con state para forzar recarga
       navigate(`/community/${communityId}/round/${roundId}`, { 
         replace: true,

@@ -1,4 +1,4 @@
-import { doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { app } from '../firebase';
 import { db } from '../firebaseDb';
 
@@ -18,8 +18,6 @@ export function getNotificationPermissionStatus(): NotificationPermissionStatus 
 
 export async function requestNotificationPermission(userId: string): Promise<boolean> {
   try {
-    console.log('Solicitando permiso de notificaciones...');
-    
     // Verificar si el navegador soporta notificaciones
     if (!('Notification' in window)) {
       console.warn('Este navegador no soporta notificaciones');
@@ -55,8 +53,6 @@ export async function setupForegroundNotifications(): Promise<void> {
   const messaging = getMessaging(app);
 
   onMessage(messaging, async (payload) => {
-    console.log('📩 Mensaje recibido en primer plano:', payload);
-
     const registration = await navigator.serviceWorker.getRegistration('/Porreta/')
       || await navigator.serviceWorker.register('/Porreta/firebase-messaging-sw.js', { scope: '/Porreta/' });
 
@@ -101,8 +97,6 @@ async function registerFCMToken(userId: string): Promise<void> {
     });
 
     if (token) {
-      console.log('✅ Token FCM obtenido');
-
       try {
         // Guardar token en Firestore usando arrayUnion (evita duplicados automáticamente)
         const userRef = doc(db, 'users', userId);
@@ -112,16 +106,6 @@ async function registerFCMToken(userId: string): Promise<void> {
           fcmTokens: arrayUnion(token)
         }, { merge: true });
         
-        console.log('💾 Token FCM guardado/actualizado en Firestore');
-        
-        // Verificar que se guardó
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const tokens = userSnap.data()?.fcmTokens || [];
-          console.log('📊 Tokens actuales en Firestore:', tokens.length);
-        } else {
-          console.error('❌ El documento de usuario no existe después de guardar');
-        }
       } catch (error) {
         console.error('❌ Error guardando token en Firestore:', error);
       }

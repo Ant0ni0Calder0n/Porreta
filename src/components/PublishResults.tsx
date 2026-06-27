@@ -181,15 +181,11 @@ const PublishResults: React.FC = () => {
           }
         });
 
-        console.log('📊 Apuesta evaluada:', { userNick: bet.userNick, correctPredictions, totalMatches: bet.predictions.length });
-
         // Solo gana si acertó TODOS los partidos
         if (correctPredictions === bet.predictions.length) {
           winners.push(bet);
         }
       });
-
-      console.log('🏆 Resultado final:', { winnersCount: winners.length });
 
       // Determinar ganador
       if (winners.length === 1) {
@@ -204,14 +200,13 @@ const PublishResults: React.FC = () => {
         winnerNick = 'BOTE';
       }
 
-      console.log('🏆 Ganador calculado:', { winnerId, winnerNick });
-
       // Actualizar la ronda con los resultados
       const updateData: any = {
         results,
         status: 'results_posted',
         winnerId,
         winnerNick,
+        winnerIds: winners.map(winner => winner.userId),
         resultsPublishedAt: Timestamp.now()
       };
       

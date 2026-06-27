@@ -30,6 +30,9 @@ export interface Community {
   description?: string;
   isActive?: boolean;
   deactivatedAt?: Timestamp;
+  boteAmount?: number;
+  botePerRound?: number;
+  rankingAdjustments?: Record<string, number>;
 }
 
 export type MatchType = 'exact' | '1X2';
@@ -67,6 +70,7 @@ export interface Round {
   liveResults?: LiveResult[]; // Resultados en vivo (antes de publicar oficialmente)
   winnerId?: string | null; // ID del ganador o null si es bote
   winnerNick?: string | null; // Nick del ganador o "BOTE"
+  winnerIds?: string[]; // IDs de todos los ganadores cuando hay más de uno
   isVisible?: boolean; // Si es false, la ronda solo es visible para admins
   resultsPublishedAt?: Timestamp; // Timestamp de cuando se publicaron los resultados oficiales
 }
