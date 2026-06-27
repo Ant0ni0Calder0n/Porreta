@@ -284,9 +284,29 @@ const CommunityDashboard: React.FC = () => {
     const nick = newRankingNick.trim();
     if (!nick) return;
 
-    await saveRankingAdjustment(nick, newRankingWins);
-    setNewRankingNick('');
-    setNewRankingWins('0');
+    setSavingRanking(true);
+    try {
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('nick', '==', nick),
+        limit(1)
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+
+      if (usersSnapshot.empty) {
+        setAlertMessage({ message: `No existe ningún usuario con el nick "${nick}"`, type: 'warning' });
+        return;
+      }
+
+      await saveRankingAdjustment(nick, newRankingWins);
+      setNewRankingNick('');
+      setNewRankingWins('0');
+    } catch (error) {
+      console.error('Error comprobando usuario del ranking:', error);
+      setAlertMessage({ message: 'Error al comprobar el usuario', type: 'error' });
+    } finally {
+      setSavingRanking(false);
+    }
   };
 
   const loadBetSummaries = async (

@@ -454,7 +454,7 @@ const SuperAdminPanel: React.FC = () => {
       <div className="header">
         <h1>🔧 Panel de Super Administrador</h1>
         <button onClick={() => navigate('/communities')}>
-          ← Volver
+          Volver
         </button>
       </div>
 
