@@ -204,7 +204,8 @@ const CommunityDashboard: React.FC = () => {
       }
     })();
     const invitation = [
-      'Comunidad nueva creada en Porreta app, únete ahora',
+      '🏆 Comunidad nueva creada en Porreta app.',
+      '¡¡Únete ahora!!',
       `Nombre: ${community.name}`,
       password ? `Contraseña: ${password}` : null
     ].filter(Boolean).join('\n');
