@@ -44,6 +44,12 @@ export interface Match {
   homeTeam: string;
   awayTeam: string;
   type: MatchType;
+  apiSource?: 'thesportsdb';
+  apiEventId?: string;
+  apiLeagueId?: string;
+  apiSeason?: string;
+  apiRound?: string;
+  apiTimestamp?: string;
 }
 
 export type RoundStatus = 'open' | 'closed' | 'results_posted';

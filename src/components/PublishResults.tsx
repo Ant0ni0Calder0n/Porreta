@@ -6,6 +6,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { Round, LiveResult, MatchStatus, MatchResult, Bet } from '../types';
 import CustomAlert from './CustomAlert';
 
+type SportsDbResultEvent = {
+  intHomeScore: string | null;
+  intAwayScore: string | null;
+  strStatus: string | null;
+};
+
 const PublishResults: React.FC = () => {
   const { communityId, roundId } = useParams<{ communityId: string; roundId: string }>();
   const navigate = useNavigate();
@@ -14,6 +20,7 @@ const PublishResults: React.FC = () => {
   const [liveResults, setLiveResults] = useState<LiveResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [searchingResults, setSearchingResults] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
 
   useEffect(() => {
@@ -65,6 +72,73 @@ const PublishResults: React.FC = () => {
       newResults[index].result = value;
     }
     setLiveResults(newResults);
+  };
+
+  const get1X2Result = (homeGoals: number, awayGoals: number) => {
+    if (homeGoals > awayGoals) return '1';
+    if (homeGoals < awayGoals) return '2';
+    return 'X';
+  };
+
+  const searchApiResults = async () => {
+    if (!round) return;
+
+    const apiMatches = round.matches
+      .map((match, index) => ({ match, index }))
+      .filter(({ match }) => match.apiSource === 'thesportsdb' && match.apiEventId);
+
+    if (apiMatches.length === 0) {
+      setAlertMessage({ message: 'Esta jornada no tiene partidos importados desde API', type: 'warning' });
+      return;
+    }
+
+    setSearchingResults(true);
+    setAlertMessage(null);
+
+    try {
+      const newResults = [...liveResults];
+      let updatedCount = 0;
+      let pendingCount = 0;
+
+      await Promise.all(apiMatches.map(async ({ match, index }) => {
+        const response = await fetch(`https://www.thesportsdb.com/api/v1/json/123/lookupevent.php?id=${match.apiEventId}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const event = (data.events?.[0] || null) as SportsDbResultEvent | null;
+        const homeGoals = event?.intHomeScore === null || event?.intHomeScore === undefined ? undefined : Number(event.intHomeScore);
+        const awayGoals = event?.intAwayScore === null || event?.intAwayScore === undefined ? undefined : Number(event.intAwayScore);
+        const isFinal = event?.strStatus === 'FT' && Number.isFinite(homeGoals) && Number.isFinite(awayGoals);
+
+        if (!isFinal || homeGoals === undefined || awayGoals === undefined) {
+          pendingCount += 1;
+          return;
+        }
+
+        newResults[index] = {
+          matchIndex: index,
+          status: 'final',
+          type: match.type,
+          ...(match.type === 'exact'
+            ? { homeGoals, awayGoals }
+            : { result: get1X2Result(homeGoals, awayGoals) })
+        };
+        updatedCount += 1;
+      }));
+
+      setLiveResults(newResults);
+      setAlertMessage({
+        message: updatedCount > 0
+          ? `Resultados encontrados: ${updatedCount}. Pendientes en API: ${pendingCount}. Revisa y guarda resultados.`
+          : 'La API todavía no tiene resultados finales para estos partidos',
+        type: updatedCount > 0 ? 'success' : 'info'
+      });
+    } catch (error) {
+      console.error('Error buscando resultados en TheSportsDB:', error);
+      setAlertMessage({ message: 'Error buscando resultados en TheSportsDB', type: 'error' });
+    } finally {
+      setSearchingResults(false);
+    }
   };
 
   const handleSave = async () => {
@@ -251,7 +325,18 @@ const PublishResults: React.FC = () => {
 
       <div className="container">
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>{round.name}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
+            <h2 style={{ margin: 0 }}>{round.name}</h2>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={searchApiResults}
+              disabled={searchingResults || saving}
+              style={{ width: 'auto', padding: '8px 12px', whiteSpace: 'nowrap' }}
+            >
+              {searchingResults ? 'Buscando...' : 'Buscar resultados'}
+            </button>
+          </div>
           <p style={{ color: '#666', fontSize: '14px', marginBottom: 0 }}>
             Actualiza los resultados a medida que se van conociendo. Cuando todos estén marcados como "Terminado", 
             se publicarán automáticamente los resultados oficiales.
