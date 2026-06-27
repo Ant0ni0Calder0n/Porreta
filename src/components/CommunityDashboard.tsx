@@ -69,6 +69,7 @@ const CommunityDashboard: React.FC = () => {
   const [newRankingNick, setNewRankingNick] = useState('');
   const [newRankingWins, setNewRankingWins] = useState('0');
   const [savingRanking, setSavingRanking] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'finished'>('active');
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   
@@ -192,7 +193,7 @@ const CommunityDashboard: React.FC = () => {
     setRankingAdjustmentDrafts(Object.fromEntries(rows.map(row => [row.nick, String(row.adjustment)])));
   };
 
-  const handleCopyInvitation = async () => {
+  const handleShareInvitation = async () => {
     if (!community) return;
 
     const password = (() => {
@@ -208,9 +209,22 @@ const CommunityDashboard: React.FC = () => {
       password ? `Contraseña: ${password}` : null
     ].filter(Boolean).join('\n');
 
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Únete a ${community.name} en Porreta`,
+          text: invitation,
+          url: `${window.location.origin}/Porreta/`
+        });
+        return;
+      } catch (error) {
+        if ((error as DOMException).name === 'AbortError') return;
+      }
+    }
+
     try {
       await navigator.clipboard.writeText(invitation);
-      setAlertMessage({ message: 'Invitación copiada', type: 'success' });
+      setAlertMessage({ message: 'No se pudo abrir el menú de compartir. Invitación copiada.', type: 'success' });
     } catch {
       setAlertMessage({ message: invitation, type: 'info' });
     }
@@ -496,6 +510,144 @@ const CommunityDashboard: React.FC = () => {
     return <div className="loading">Comunidad no encontrada</div>;
   }
 
+  if (showRanking) {
+    const leader = rankingRows[0];
+    const rest = rankingRows.slice(1);
+
+    return (
+      <div>
+        <div className="header">
+          <div>
+            <h1>Ranking</h1>
+          </div>
+          <button onClick={() => setShowRanking(false)}>Volver</button>
+        </div>
+
+        <div className="container">
+          <div className="card">
+            <h2 style={{ marginTop: 0, textAlign: 'center' }}>Jornadas ganadas</h2>
+
+            {rankingRows.length === 0 ? (
+              <p style={{ margin: 0, color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Todavía no hay jornadas ganadas.
+              </p>
+            ) : (
+              <>
+                <div style={{
+                  textAlign: 'center',
+                  padding: '22px 14px',
+                  marginBottom: '18px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.22), rgba(25, 118, 210, 0.12))',
+                  border: '1px solid rgba(255, 193, 7, 0.45)'
+                }}>
+                  <div style={{ fontSize: '34px', marginBottom: '6px' }}>🏆</div>
+                  <div style={{ fontSize: '22px', fontWeight: 800 }}>{leader.nick}</div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {leader.totalWins} {leader.totalWins === 1 ? 'victoria' : 'victorias'}
+                    {leader.adjustment !== 0 && ` (${leader.calculatedWins} app ${leader.adjustment > 0 ? '+' : ''}${leader.adjustment})`}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {rest.map((row, index) => (
+                    <div key={row.nick} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 0',
+                      borderBottom: index < rest.length - 1 ? '1px solid var(--border-color)' : 'none',
+                      flexWrap: 'wrap'
+                    }}>
+                      <span style={{ fontWeight: 600 }}>{index + 2}. {row.nick}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                        {row.totalWins} {row.totalWins === 1 ? 'victoria' : 'victorias'}
+                        {row.adjustment !== 0 && ` (${row.calculatedWins} app ${row.adjustment > 0 ? '+' : ''}${row.adjustment})`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {isSuperAdmin && (
+            <div className="card">
+              <h3 style={{ marginTop: 0 }}>Ajustes históricos</h3>
+              <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Suma o resta victorias manuales a las victorias calculadas por la app.
+              </p>
+
+              {rankingRows.map((row) => (
+                <div key={row.nick} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ flex: 1, fontWeight: 600 }}>{row.nick}</span>
+                  <input
+                    type="number"
+                    className="input"
+                    value={rankingAdjustmentDrafts[row.nick] ?? '0'}
+                    onChange={(event) => setRankingAdjustmentDrafts(prev => ({ ...prev, [row.nick]: event.target.value }))}
+                    disabled={savingRanking}
+                    title="Ajuste manual sobre victorias calculadas"
+                    style={{ width: '80px', margin: 0, padding: '6px 8px' }}
+                  />
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => saveRankingAdjustment(row.nick, rankingAdjustmentDrafts[row.nick] ?? '0')}
+                    disabled={savingRanking}
+                    style={{ width: 'auto', padding: '6px 10px', margin: 0, fontSize: '13px' }}
+                  >
+                    Guardar
+                  </button>
+                </div>
+              ))}
+
+              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Nick"
+                    value={newRankingNick}
+                    onChange={(event) => setNewRankingNick(event.target.value)}
+                    disabled={savingRanking}
+                    style={{ flex: '1 1 160px', margin: 0 }}
+                  />
+                  <input
+                    type="number"
+                    className="input"
+                    value={newRankingWins}
+                    onChange={(event) => setNewRankingWins(event.target.value)}
+                    disabled={savingRanking}
+                    style={{ width: '110px', margin: 0 }}
+                  />
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={addManualRankingEntry}
+                    disabled={savingRanking || !newRankingNick.trim()}
+                    style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {alertMessage && (
+          <CustomAlert
+            message={alertMessage.message}
+            type={alertMessage.type}
+            onClose={() => setAlertMessage(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Notificación de resultados */}
@@ -505,14 +657,27 @@ const CommunityDashboard: React.FC = () => {
         <div>
           <h1>{community.name}</h1>
         </div>
-        <button onClick={() => navigate(-1)}>Volver</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {isAdmin && (
+            <button onClick={handleShareInvitation} title="Compartir invitación">↗</button>
+          )}
+          <button onClick={() => navigate(-1)}>Volver</button>
+        </div>
       </div>
 
       <div className="container">
         {/* Descripción de la comunidad */}
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', color: '#666' }}>Información</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setShowRanking(true)}
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', margin: 0 }}
+            >
+              Ranking
+            </button>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#666', flex: 1 }}>Información</h3>
             {isAdmin && !editingDescription && (
               <button
                 className="button button-secondary"
@@ -557,155 +722,72 @@ const CommunityDashboard: React.FC = () => {
               </div>
             </div>
           ) : (
-            <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.5' }}>
-              {description || (isAdmin ? 'Haz clic en "Editar" para añadir información...' : 'Sin información')}
-            </p>
-          )}
-        </div>
-
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', color: '#666' }}>Bote</h3>
-            {isAdmin && !editingBote && (
-              <button
-                className="button button-secondary"
-                onClick={() => setEditingBote(true)}
-                style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', marginTop: 0 }}
-              >
-                Editar
-              </button>
-            )}
-          </div>
-
-          {editingBote ? (
             <div>
-              <label className="label">Bote acumulado (€)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="input"
-                value={boteAmount}
-                onChange={(event) => setBoteAmount(event.target.value)}
-                disabled={savingBote}
-              />
-              <label className="label">Euros que se suman por jornada visible</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="input"
-                value={botePerRound}
-                onChange={(event) => setBotePerRound(event.target.value)}
-                disabled={savingBote}
-              />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="button" onClick={handleSaveBote} disabled={savingBote} style={{ flex: 1 }}>
-                  {savingBote ? 'Guardando...' : 'Guardar'}
-                </button>
-                <button
-                  className="button button-secondary"
-                  onClick={() => {
-                    setBoteAmount(String(community.boteAmount || 0));
-                    setBotePerRound(String(community.botePerRound || 0));
-                    setEditingBote(false);
-                  }}
-                  disabled={savingBote}
-                  style={{ flex: 1 }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>
-                {(community.boteAmount || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
-              </p>
-              <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                Se suman {(community.botePerRound || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} € al crear una jornada visible.
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.5' }}>
+                {description || (isAdmin ? 'Haz clic en "Editar" para añadir información...' : 'Sin información')}
               </p>
             </div>
           )}
-        </div>
 
-        <div className="card">
-          <h3 style={{ marginTop: 0, fontSize: '16px', color: '#666' }}>Ranking de jornadas ganadas</h3>
-          {rankingRows.length === 0 ? (
-            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>Todavía no hay jornadas ganadas.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {rankingRows.map((row, index) => (
-                <div key={row.nick} style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 600 }}>
-                    {index + 1}. {row.nick}
-                  </span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                    {row.totalWins} {row.totalWins === 1 ? 'victoria' : 'victorias'}
-                    {row.adjustment !== 0 && ` (${row.calculatedWins} app ${row.adjustment > 0 ? '+' : ''}${row.adjustment})`}
-                  </span>
-                  {isSuperAdmin && (
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        className="input"
-                        value={rankingAdjustmentDrafts[row.nick] ?? '0'}
-                        onChange={(event) => setRankingAdjustmentDrafts(prev => ({ ...prev, [row.nick]: event.target.value }))}
-                        disabled={savingRanking}
-                        title="Ajuste manual sobre victorias calculadas"
-                        style={{ width: '80px', margin: 0, padding: '6px 8px' }}
-                      />
-                      <button
-                        type="button"
-                        className="button button-secondary"
-                        onClick={() => saveRankingAdjustment(row.nick, rankingAdjustmentDrafts[row.nick] ?? '0')}
-                        disabled={savingRanking}
-                        style={{ width: 'auto', padding: '6px 10px', margin: 0, fontSize: '13px' }}
-                      >
-                        Guardar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isSuperAdmin && (
-            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-              <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                Ajustes históricos: escribe victorias manuales para jugadores anteriores a la app.
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Nick"
-                  value={newRankingNick}
-                  onChange={(event) => setNewRankingNick(event.target.value)}
-                  disabled={savingRanking}
-                  style={{ flex: '1 1 160px', margin: 0 }}
-                />
+          <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+            {editingBote ? (
+              <div>
+                <label className="label">Bote acumulado (€)</label>
                 <input
                   type="number"
+                  min="0"
+                  step="0.01"
                   className="input"
-                  value={newRankingWins}
-                  onChange={(event) => setNewRankingWins(event.target.value)}
-                  disabled={savingRanking}
-                  style={{ width: '110px', margin: 0 }}
+                  value={boteAmount}
+                  onChange={(event) => setBoteAmount(event.target.value)}
+                  disabled={savingBote}
                 />
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  onClick={addManualRankingEntry}
-                  disabled={savingRanking || !newRankingNick.trim()}
-                  style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
-                >
-                  Añadir
-                </button>
+                <label className="label">Euros que se suman por jornada visible</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input"
+                  value={botePerRound}
+                  onChange={(event) => setBotePerRound(event.target.value)}
+                  disabled={savingBote}
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="button" onClick={handleSaveBote} disabled={savingBote} style={{ flex: 1 }}>
+                    {savingBote ? 'Guardando...' : 'Guardar'}
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => {
+                      setBoteAmount(String(community.boteAmount || 0));
+                      setBotePerRound(String(community.botePerRound || 0));
+                      setEditingBote(false);
+                    }}
+                    disabled={savingBote}
+                    style={{ flex: 1 }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>
+                  Bote acumulado {(community.boteAmount || 0).toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
+                </p>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => setEditingBote(true)}
+                    style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', margin: '10px auto 0 auto' }}
+                  >
+                    Editar bote
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Solo el admin puede crear rondas */}
@@ -716,14 +798,6 @@ const CommunityDashboard: React.FC = () => {
               onClick={() => navigate(`/community/${communityId}/create-round`)}
             >
               Crear Nueva Ronda
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={handleCopyInvitation}
-              style={{ width: 'auto', padding: '8px 12px', margin: '8px 0 0 0', fontSize: '14px' }}
-            >
-              Copiar invitación
             </button>
           </div>
         )}
