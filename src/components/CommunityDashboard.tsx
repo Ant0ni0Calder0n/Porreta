@@ -669,14 +669,6 @@ const CommunityDashboard: React.FC = () => {
         {/* Descripción de la comunidad */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => setShowRanking(true)}
-              style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', margin: 0 }}
-            >
-              Ranking
-            </button>
             <h3 style={{ margin: 0, fontSize: '16px', color: '#666', flex: 1 }}>Información</h3>
             {isAdmin && !editingDescription && (
               <button
@@ -687,6 +679,14 @@ const CommunityDashboard: React.FC = () => {
                 Editar
               </button>
             )}
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setShowRanking(true)}
+              style={{ width: 'auto', padding: '6px 12px', fontSize: '14px', margin: 0 }}
+            >
+              Ranking
+            </button>
           </div>
           
           {editingDescription ? (
