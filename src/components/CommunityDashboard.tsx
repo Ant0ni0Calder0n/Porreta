@@ -658,10 +658,10 @@ const CommunityDashboard: React.FC = () => {
           {isAdmin && (
             <button onClick={handleShareInvitation} title="Compartir invitación" aria-label="Compartir invitación">
               <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: 'block' }}>
-                <path d="M8.6 7.4L15.4 4.1M8.6 16.6L15.4 19.9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-                <circle cx="6" cy="12" r="3.2" fill="currentColor" />
-                <circle cx="18" cy="4" r="3.2" fill="currentColor" />
-                <circle cx="18" cy="20" r="3.2" fill="currentColor" />
+                <path d="M6 12L18 5M6 12L18 19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="6" cy="12" r="3" fill="currentColor" />
+                <circle cx="18" cy="5" r="3" fill="currentColor" />
+                <circle cx="18" cy="19" r="3" fill="currentColor" />
               </svg>
             </button>
           )}
