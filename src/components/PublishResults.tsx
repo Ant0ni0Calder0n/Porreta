@@ -5,6 +5,7 @@ import { db } from '../firebaseDb';
 import { useAuth } from '../contexts/AuthContext';
 import { Round, LiveResult, MatchStatus, MatchResult, Bet } from '../types';
 import CustomAlert from './CustomAlert';
+import { fetchSportsDb } from '../utils/sportsDb';
 
 type SportsDbResultEvent = {
   intHomeScore: string | null;
@@ -101,10 +102,10 @@ const PublishResults: React.FC = () => {
       let pendingCount = 0;
 
       await Promise.all(apiMatches.map(async ({ match, index }) => {
-        const response = await fetch(`https://www.thesportsdb.com/api/v1/json/123/lookupevent.php?id=${match.apiEventId}`);
-        if (!response.ok) return;
-
-        const data = await response.json();
+        const data = await fetchSportsDb<{ events?: SportsDbResultEvent[] }>({
+          endpoint: 'lookupevent',
+          id: match.apiEventId || ''
+        });
         const event = (data.events?.[0] || null) as SportsDbResultEvent | null;
         const homeGoals = event?.intHomeScore === null || event?.intHomeScore === undefined ? undefined : Number(event.intHomeScore);
         const awayGoals = event?.intAwayScore === null || event?.intAwayScore === undefined ? undefined : Number(event.intAwayScore);

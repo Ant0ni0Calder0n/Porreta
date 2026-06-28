@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, doc, getDoc, increment, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseDb';
 import { Community, Match, MatchType } from '../types';
+import { fetchSportsDb } from '../utils/sportsDb';
 
 type LeagueOption = {
   id: string;
@@ -163,12 +164,12 @@ const CreateRound: React.FC = () => {
     });
 
   const fetchRoundEvents = async (round: string) => {
-    const response = await fetch(`https://www.thesportsdb.com/api/v1/json/123/eventsround.php?id=${importLeagueId}&r=${encodeURIComponent(round)}&s=${encodeURIComponent(importSeason)}`);
-    if (!response.ok) {
-      throw new Error('No se pudo conectar con TheSportsDB');
-    }
-
-    const data = await response.json();
+    const data = await fetchSportsDb<{ events?: SportsDbEvent[] }>({
+      endpoint: 'eventsround',
+      id: importLeagueId,
+      round,
+      season: importSeason
+    });
     return normalizeEvents((data.events || []) as SportsDbEvent[]);
   };
 
@@ -213,12 +214,11 @@ const CreateRound: React.FC = () => {
           events = await fetchRoundEvents(importRound);
         }
       } else {
-        const response = await fetch(`https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${importLeagueId}&s=${encodeURIComponent(importSeason)}`);
-        if (!response.ok) {
-          throw new Error('No se pudo conectar con TheSportsDB');
-        }
-
-        const data = await response.json();
+        const data = await fetchSportsDb<{ events?: SportsDbEvent[] }>({
+          endpoint: 'eventsseason',
+          id: importLeagueId,
+          season: importSeason
+        });
         events = normalizeEvents((data.events || []) as SportsDbEvent[]);
       }
 

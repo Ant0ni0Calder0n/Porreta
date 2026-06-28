@@ -26,6 +26,13 @@ interface NotificationLogInput {
   error?: string;
 }
 
+type SportsDbRequest = {
+  endpoint?: string;
+  id?: string;
+  round?: string;
+  season?: string;
+};
+
 const allowsNotification = (userData: admin.firestore.DocumentData, preference: NotificationPreference): boolean => {
   const settings = userData.notificationSettings || {};
   return settings[preference] !== false;
@@ -160,6 +167,44 @@ export const sendTestNotification = functions.https.onCall(async (_data, context
     successCount: response.successCount,
     failureCount: response.failureCount
   };
+});
+
+export const fetchSportsDb = functions.https.onCall(async (data: SportsDbRequest, context) => {
+  if (!context.auth?.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión para consultar TheSportsDB');
+  }
+
+  const endpoint = data.endpoint;
+  const id = data.id;
+  const season = data.season;
+  const round = data.round;
+
+  if (!endpoint || !id || !/^\d+$/.test(id)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Petición TheSportsDB inválida');
+  }
+
+  const params = new URLSearchParams({ id });
+  if (endpoint === 'eventsround') {
+    if (!round || !/^\d+$/.test(round) || !season || !/^\d{4}(-\d{4})?$/.test(season)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Jornada o temporada inválida');
+    }
+    params.set('r', round);
+    params.set('s', season);
+  } else if (endpoint === 'eventsseason') {
+    if (!season || !/^\d{4}(-\d{4})?$/.test(season)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Temporada inválida');
+    }
+    params.set('s', season);
+  } else if (endpoint !== 'lookupevent') {
+    throw new functions.https.HttpsError('invalid-argument', 'Endpoint TheSportsDB no permitido');
+  }
+
+  const response = await fetch(`https://www.thesportsdb.com/api/v1/json/123/${endpoint}.php?${params.toString()}`);
+  if (!response.ok) {
+    throw new functions.https.HttpsError('unavailable', 'TheSportsDB no respondió correctamente');
+  }
+
+  return await response.json();
 });
 
 // Cloud Function que se dispara cuando se crea o actualiza una ronda
