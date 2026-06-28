@@ -1,0 +1,1 @@
+function o(){const t=navigator.userAgent||"",a=(navigator.platform||"")==="MacIntel"&&navigator.maxTouchPoints>1;return/Android/i.test(t)?"android":/iPhone|iPad|iPod/i.test(t)||a?"ios":"other"}function e(){return window.matchMedia("(display-mode: standalone)").matches||!!navigator.standalone}export{o as g,e as i};
