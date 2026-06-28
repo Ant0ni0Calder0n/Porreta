@@ -6,6 +6,7 @@ import { collection, query, where, getDocs, addDoc, doc, updateDoc, increment, g
 import { db } from '../firebaseDb';
 import { Community, GlobalConfig } from '../types';
 import CustomAlert from './CustomAlert';
+import InstallAppPrompt from './InstallAppPrompt';
 
 const Communities: React.FC = () => {
   const { userData, logout, isSuperAdmin } = useAuth();
@@ -129,6 +130,8 @@ const Communities: React.FC = () => {
       </div>
 
       <div className="container">
+        <InstallAppPrompt />
+
         <div className="card">
           <button 
             className="button" 

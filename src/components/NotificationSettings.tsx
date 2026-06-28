@@ -10,6 +10,7 @@ import {
   requestNotificationPermission,
   sendTestNotification
 } from '../utils/notifications';
+import { getDevicePlatform, isInstalledApp } from '../utils/installPrompt';
 
 const defaultSettings: NotificationSettingsType = {
   newRounds: true,
@@ -28,14 +29,20 @@ const NotificationSettings: React.FC = () => {
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermissionStatus>(getNotificationPermissionStatus());
+  const [installedApp, setInstalledApp] = useState(isInstalledApp());
   const [statusMessage, setStatusMessage] = useState('');
 
+  const isIosNotInstalled = getDevicePlatform() === 'ios' && !installedApp;
   const permissionGranted = permissionStatus === 'granted';
 
   useEffect(() => {
-    const updatePermissionStatus = () => setPermissionStatus(getNotificationPermissionStatus());
-    window.addEventListener('focus', updatePermissionStatus);
-    return () => window.removeEventListener('focus', updatePermissionStatus);
+    const updateDeviceStatus = () => {
+      setPermissionStatus(getNotificationPermissionStatus());
+      setInstalledApp(isInstalledApp());
+    };
+
+    window.addEventListener('focus', updateDeviceStatus);
+    return () => window.removeEventListener('focus', updateDeviceStatus);
   }, []);
 
   const updateSetting = async (field: keyof NotificationSettingsType, value: boolean) => {
@@ -65,6 +72,12 @@ const NotificationSettings: React.FC = () => {
 
     const currentPermissionStatus = getNotificationPermissionStatus();
     setPermissionStatus(currentPermissionStatus);
+    setInstalledApp(isInstalledApp());
+
+    if (getDevicePlatform() === 'ios' && !isInstalledApp()) {
+      setStatusMessage('En iPhone, primero añade Porreta a la pantalla de inicio y abre la app desde ese icono. Después vuelve aquí para activar notificaciones.');
+      return;
+    }
 
     if (currentPermissionStatus === 'unsupported') {
       setStatusMessage('Este navegador no soporta notificaciones push. Prueba con Chrome, Edge o Safari actualizado.');
@@ -111,6 +124,7 @@ const NotificationSettings: React.FC = () => {
   };
 
   const permissionTitle = (() => {
+    if (isIosNotInstalled) return 'Instala Porreta para activar avisos';
     if (permissionStatus === 'granted') return 'Notificaciones permitidas';
     if (permissionStatus === 'denied') return 'Notificaciones bloqueadas';
     if (permissionStatus === 'unsupported') return 'Notificaciones no soportadas';
@@ -118,6 +132,10 @@ const NotificationSettings: React.FC = () => {
   })();
 
   const permissionDescription = (() => {
+    if (isIosNotInstalled) {
+      return 'En iPhone, las notificaciones push necesitan que Porreta esté añadida a la pantalla de inicio y se abra desde ese icono.';
+    }
+
     if (permissionStatus === 'granted') {
       return 'Este dispositivo ya puede recibir avisos. Si cambiaste de móvil, navegador o reinstalaste la app, pulsa Reactivar notificaciones para volver a guardar este dispositivo.';
     }
@@ -135,6 +153,7 @@ const NotificationSettings: React.FC = () => {
 
   const enableButtonLabel = (() => {
     if (requestingPermission) return 'Activando...';
+    if (isIosNotInstalled) return 'Instala la app primero';
     if (permissionStatus === 'granted') return 'Reactivar notificaciones';
     if (permissionStatus === 'denied') return 'Ver cómo desbloquear';
     if (permissionStatus === 'unsupported') return 'No soportado';
@@ -196,6 +215,15 @@ const NotificationSettings: React.FC = () => {
                 <p style={{ margin: 0 }}>Ordenador: pulsa el candado junto a la dirección web, permite Notificaciones, recarga Porreta y vuelve a pulsar Reactivar.</p>
               </div>
             )}
+            {isIosNotInstalled && (
+              <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '10px' }}>
+                <p style={{ margin: '0 0 6px 0' }}><strong>Para instalar en iPhone:</strong></p>
+                <p style={{ margin: '0 0 4px 0' }}>1. Abre Porreta en Safari.</p>
+                <p style={{ margin: '0 0 4px 0' }}>2. Pulsa Compartir.</p>
+                <p style={{ margin: '0 0 4px 0' }}>3. Pulsa Añadir a pantalla de inicio.</p>
+                <p style={{ margin: 0 }}>4. Abre Porreta desde el icono creado y vuelve a activar notificaciones.</p>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
@@ -203,7 +231,7 @@ const NotificationSettings: React.FC = () => {
               type="button"
               className="button"
               onClick={handleEnableNotifications}
-              disabled={requestingPermission || permissionStatus === 'unsupported'}
+              disabled={requestingPermission || permissionStatus === 'unsupported' || isIosNotInstalled}
               style={{ width: 'auto', padding: '10px 14px', margin: 0 }}
             >
               {enableButtonLabel}
