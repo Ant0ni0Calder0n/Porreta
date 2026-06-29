@@ -4,7 +4,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword
 } from 'firebase/auth';
 import { auth } from '../firebase';
 import { User } from '../types';
@@ -17,6 +20,7 @@ interface AuthContextType {
   signup: (email: string, password: string, nick: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
 
@@ -134,6 +138,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await firebaseSignOut(auth);
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!currentUser?.email) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
+  };
+
   const value = {
     currentUser,
     userData,
@@ -142,6 +156,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     signup,
     login,
     logout,
+    changePassword,
     refreshUserData
   };
 

@@ -9,13 +9,15 @@ import CustomAlert from './CustomAlert';
 import InstallAppPrompt from './InstallAppPrompt';
 
 const Communities: React.FC = () => {
-  const { userData, logout, isSuperAdmin } = useAuth();
+  const { userData, logout, isSuperAdmin, changePassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [communityCreationDisabled, setCommunityCreationDisabled] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
 
@@ -99,33 +101,36 @@ const Communities: React.FC = () => {
     <div>
       <div className="header">
         <h1>Mis Comunidades</h1>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {isSuperAdmin && (
-            <button 
-              onClick={() => navigate('/super-admin')}
-              style={headerButtonStyle}
-              title="Panel de super administrador"
-            >
-              🔧
-            </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            style={headerButtonStyle}
+            title="Ajustes"
+          >
+            ⚙️
+          </button>
+          {showSettingsMenu && (
+            <div style={{
+              position: 'absolute',
+              top: '46px',
+              right: 0,
+              zIndex: 20,
+              minWidth: '220px',
+              padding: '8px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--bg-secondary)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.22)',
+              border: '1px solid var(--border-color)'
+            }}>
+              {isSuperAdmin && (
+                <SettingsMenuButton label="🔧 Superadmin" onClick={() => { setShowSettingsMenu(false); navigate('/super-admin'); }} />
+              )}
+              <SettingsMenuButton label="🔔 Notificaciones" onClick={() => { setShowSettingsMenu(false); navigate('/notifications'); }} />
+              <SettingsMenuButton label={theme === 'light' ? '🌙 Modo oscuro' : '☀️ Modo claro'} onClick={() => { setShowSettingsMenu(false); toggleTheme(); }} />
+              <SettingsMenuButton label="🔑 Cambiar contraseña" onClick={() => { setShowSettingsMenu(false); setShowPasswordModal(true); }} />
+              <SettingsMenuButton label="🚪 Salir" onClick={() => { setShowSettingsMenu(false); handleLogout(); }} />
+            </div>
           )}
-          <button
-            onClick={() => navigate('/notifications')}
-            style={headerButtonStyle}
-            title="Notificaciones"
-          >
-            🔔
-          </button>
-          <button
-            onClick={toggleTheme}
-            style={headerButtonStyle}
-            title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
-          >
-            {theme === 'light' ? '🌙' : '☀️'}
-          </button>
-          <button onClick={handleLogout} style={{ ...headerButtonStyle, fontSize: '13px', fontWeight: 600 }} title="Salir">
-            Salir
-          </button>
         </div>
       </div>
 
@@ -202,6 +207,14 @@ const Communities: React.FC = () => {
         />
       )}
 
+      {showPasswordModal && (
+        <ChangePasswordModal
+          onClose={() => setShowPasswordModal(false)}
+          onChangePassword={changePassword}
+          onSuccess={() => setAlertMessage({ message: 'Contraseña actualizada correctamente', type: 'success' })}
+        />
+      )}
+
       {/* Alerta personalizada */}
       {alertMessage && (
         <CustomAlert
@@ -210,6 +223,131 @@ const Communities: React.FC = () => {
           onClose={() => setAlertMessage(null)}
         />
       )}
+    </div>
+  );
+};
+
+interface SettingsMenuButtonProps {
+  label: string;
+  onClick: () => void;
+}
+
+const SettingsMenuButton: React.FC<SettingsMenuButtonProps> = ({ label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      width: '100%',
+      border: 'none',
+      background: 'transparent',
+      color: 'var(--text-primary)',
+      padding: '10px 12px',
+      textAlign: 'left',
+      cursor: 'pointer',
+      borderRadius: '6px',
+      fontSize: '14px'
+    }}
+  >
+    {label}
+  </button>
+);
+
+interface ChangePasswordModalProps {
+  onClose: () => void;
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  onSuccess: () => void;
+}
+
+const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClose, onChangePassword, onSuccess }) => {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Completa todos los campos');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('La nueva contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Las contraseñas nuevas no coinciden');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await onChangePassword(currentPassword, newPassword);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (code.includes('wrong-password') || code.includes('invalid-credential')) {
+        setError('La contraseña actual no es correcta');
+      } else if (code.includes('requires-recent-login')) {
+        setError('Vuelve a iniciar sesión y prueba otra vez');
+      } else {
+        setError('Error al cambiar contraseña');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <h2>Cambiar contraseña</h2>
+        <form onSubmit={handleSubmit}>
+          <label className="label">Contraseña actual</label>
+          <input
+            type="password"
+            className="input"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            disabled={saving}
+          />
+
+          <label className="label">Nueva contraseña</label>
+          <input
+            type="password"
+            className="input"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            disabled={saving}
+          />
+
+          <label className="label">Repetir nueva contraseña</label>
+          <input
+            type="password"
+            className="input"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            disabled={saving}
+          />
+
+          {error && <div className="error">{error}</div>}
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="submit" className="button" disabled={saving} style={{ flex: 1 }}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+            <button type="button" className="button button-secondary" onClick={onClose} disabled={saving} style={{ flex: 1 }}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

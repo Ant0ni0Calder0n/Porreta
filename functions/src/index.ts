@@ -33,6 +33,8 @@ type SportsDbRequest = {
   season?: string;
 };
 
+const DEFAULT_RESET_PASSWORD = 'porretaapp';
+
 const allowsNotification = (userData: admin.firestore.DocumentData, preference: NotificationPreference): boolean => {
   const settings = userData.notificationSettings || {};
   return settings[preference] !== false;
@@ -205,6 +207,28 @@ export const fetchSportsDb = functions.https.onCall(async (data: SportsDbRequest
   }
 
   return await response.json();
+});
+
+export const resetUserPassword = functions.https.onCall(async (data: { userId?: string }, context) => {
+  if (!context.auth?.uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Debes iniciar sesión');
+  }
+
+  const requesterDoc = await db.collection('users').doc(context.auth.uid).get();
+  if (!requesterDoc.exists || requesterDoc.data()?.isSuperAdmin !== true) {
+    throw new functions.https.HttpsError('permission-denied', 'Solo superadmin puede resetear contraseñas');
+  }
+
+  const userId = data.userId;
+  if (!userId || typeof userId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Usuario inválido');
+  }
+
+  await admin.auth().updateUser(userId, {
+    password: DEFAULT_RESET_PASSWORD,
+  });
+
+  return { password: DEFAULT_RESET_PASSWORD };
 });
 
 // Cloud Function que se dispara cuando se crea o actualiza una ronda

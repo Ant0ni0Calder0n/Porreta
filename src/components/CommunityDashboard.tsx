@@ -9,9 +9,7 @@ import CustomAlert from './CustomAlert';
 
 type RankingRow = {
   nick: string;
-  calculatedWins: number;
-  adjustment: number;
-  totalWins: number;
+  totalPrize: number;
 };
 
 // Función para formatear el tiempo restante hasta el deadline
@@ -116,7 +114,7 @@ const CommunityDashboard: React.FC = () => {
         setDescription(communityData.description || '');
         setBoteAmount(String(communityData.boteAmount || 0));
         setBotePerRound(String(communityData.botePerRound || 0));
-        await loadRanking(communityData.rankingAdjustments || {});
+        loadRanking(communityData.rankingPrizes || {});
       }
 
       const recentClosedCutoff = Timestamp.fromMillis(Date.now() - RECENT_CLOSED_DAYS * 24 * 60 * 60 * 1000);
@@ -149,48 +147,14 @@ const CommunityDashboard: React.FC = () => {
     }
   };
 
-  const loadRanking = async (adjustments: Record<string, number> = community?.rankingAdjustments || {}) => {
-    if (!communityId) return;
-
-    const winsByNick: Record<string, number> = {};
-    const roundsQuery = query(
-      collection(db, 'rounds'),
-      where('communityId', '==', communityId),
-      where('status', '==', 'results_posted')
-    );
-    const roundsSnapshot = await getDocs(roundsQuery);
-
-    roundsSnapshot.forEach((roundDoc) => {
-      const round = roundDoc.data() as Round;
-      if (!round.winnerNick || round.winnerNick === 'BOTE') return;
-
-      const winnerNicks = round.winnerNick
-        .split(',')
-        .map(nick => nick.trim())
-        .filter(Boolean);
-
-      winnerNicks.forEach((nick) => {
-        winsByNick[nick] = (winsByNick[nick] || 0) + 1;
-      });
-    });
-
-    const allNicks = new Set([...Object.keys(winsByNick), ...Object.keys(adjustments)]);
-    const rows = Array.from(allNicks)
-      .map((nick) => {
-        const calculatedWins = winsByNick[nick] || 0;
-        const adjustment = adjustments[nick] || 0;
-        return {
-          nick,
-          calculatedWins,
-          adjustment,
-          totalWins: calculatedWins + adjustment
-        };
-      })
-      .filter(row => row.calculatedWins > 0 || row.adjustment !== 0 || row.totalWins > 0)
-      .sort((a, b) => b.totalWins - a.totalWins || a.nick.localeCompare(b.nick));
+  const loadRanking = (prizes: Record<string, number> = community?.rankingPrizes || {}) => {
+    const rows = Object.entries(prizes)
+      .map(([nick, totalPrize]) => ({ nick, totalPrize }))
+      .filter(row => row.totalPrize > 0)
+      .sort((a, b) => b.totalPrize - a.totalPrize || a.nick.localeCompare(b.nick));
 
     setRankingRows(rows);
-    setRankingAdjustmentDrafts(Object.fromEntries(rows.map(row => [row.nick, String(row.adjustment)])));
+    setRankingAdjustmentDrafts(Object.fromEntries(rows.map(row => [row.nick, String(row.totalPrize)])));
   };
 
   const handleShareInvitation = async () => {
@@ -253,25 +217,25 @@ const CommunityDashboard: React.FC = () => {
     }
   };
 
-  const saveRankingAdjustment = async (nick: string, rawValue: string) => {
+  const saveRankingPrize = async (nick: string, rawValue: string) => {
     if (!communityId || !community || !isSuperAdmin) return;
 
-    const adjustment = Number(rawValue) || 0;
-    const nextAdjustments = { ...(community.rankingAdjustments || {}) };
-    if (adjustment === 0) {
-      delete nextAdjustments[nick];
+    const totalPrize = Number(rawValue) || 0;
+    const nextPrizes = { ...(community.rankingPrizes || {}) };
+    if (totalPrize <= 0) {
+      delete nextPrizes[nick];
     } else {
-      nextAdjustments[nick] = adjustment;
+      nextPrizes[nick] = totalPrize;
     }
 
     setSavingRanking(true);
     try {
       await updateDoc(doc(db, 'communities', communityId), {
-        rankingAdjustments: nextAdjustments
+        rankingPrizes: nextPrizes
       });
-      const nextCommunity = { ...community, rankingAdjustments: nextAdjustments };
+      const nextCommunity = { ...community, rankingPrizes: nextPrizes };
       setCommunity(nextCommunity);
-      await loadRanking(nextAdjustments);
+      loadRanking(nextPrizes);
     } catch (error) {
       console.error('Error guardando ranking:', error);
       setAlertMessage({ message: 'Error al guardar el ranking', type: 'error' });
@@ -298,7 +262,14 @@ const CommunityDashboard: React.FC = () => {
         return;
       }
 
-      await saveRankingAdjustment(nick, newRankingWins);
+      const amountToAdd = Number(newRankingWins) || 0;
+      if (amountToAdd <= 0) {
+        setAlertMessage({ message: 'El importe debe ser mayor que 0', type: 'warning' });
+        return;
+      }
+
+      const currentPrize = community?.rankingPrizes?.[nick] || 0;
+      await saveRankingPrize(nick, String(currentPrize + amountToAdd));
       setNewRankingNick('');
       setNewRankingWins('0');
     } catch (error) {
@@ -545,11 +516,11 @@ const CommunityDashboard: React.FC = () => {
 
         <div className="container">
           <div className="card">
-            <h2 style={{ marginTop: 0, textAlign: 'center' }}>Jornadas ganadas</h2>
+            <h2 style={{ marginTop: 0, textAlign: 'center' }}>Premios acumulados</h2>
 
             {rankingRows.length === 0 ? (
               <p style={{ margin: 0, color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Todavía no hay jornadas ganadas.
+                Todavía no hay premios registrados.
               </p>
             ) : (
               <>
@@ -564,7 +535,7 @@ const CommunityDashboard: React.FC = () => {
                   <div style={{ fontSize: '34px', marginBottom: '6px' }}>🏆</div>
                   <div style={{ fontSize: '22px', fontWeight: 800 }}>{leader.nick}</div>
                   <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    {leader.totalWins} {leader.totalWins === 1 ? 'victoria' : 'victorias'}
+                    {leader.totalPrize.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
                   </div>
                 </div>
 
@@ -581,7 +552,7 @@ const CommunityDashboard: React.FC = () => {
                     }}>
                       <span style={{ fontWeight: 600 }}>{index + 2}. {row.nick}</span>
                       <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                        {row.totalWins} {row.totalWins === 1 ? 'victoria' : 'victorias'}
+                        {row.totalPrize.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
                       </span>
                     </div>
                   ))}
@@ -592,9 +563,9 @@ const CommunityDashboard: React.FC = () => {
 
           {isSuperAdmin && (
             <div className="card">
-              <h3 style={{ marginTop: 0 }}>Ajustes históricos</h3>
+              <h3 style={{ marginTop: 0 }}>Premios manuales</h3>
               <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                Suma o resta victorias manuales a las victorias calculadas por la app.
+                El ranking se alimenta manualmente. Si añades dos importes al mismo nick, se suman en un único total.
               </p>
 
               {rankingRows.map((row) => (
@@ -606,13 +577,13 @@ const CommunityDashboard: React.FC = () => {
                     value={rankingAdjustmentDrafts[row.nick] ?? '0'}
                     onChange={(event) => setRankingAdjustmentDrafts(prev => ({ ...prev, [row.nick]: event.target.value }))}
                     disabled={savingRanking}
-                    title="Ajuste manual sobre victorias calculadas"
+                    title="Importe total ganado"
                     style={{ width: '80px', margin: 0, padding: '6px 8px' }}
                   />
                   <button
                     type="button"
                     className="button button-secondary"
-                    onClick={() => saveRankingAdjustment(row.nick, rankingAdjustmentDrafts[row.nick] ?? '0')}
+                    onClick={() => saveRankingPrize(row.nick, rankingAdjustmentDrafts[row.nick] ?? '0')}
                     disabled={savingRanking}
                     style={{ width: 'auto', padding: '6px 10px', margin: 0, fontSize: '13px' }}
                   >
@@ -635,6 +606,8 @@ const CommunityDashboard: React.FC = () => {
                   <input
                     type="number"
                     className="input"
+                    min="0"
+                    step="0.01"
                     value={newRankingWins}
                     onChange={(event) => setNewRankingWins(event.target.value)}
                     disabled={savingRanking}

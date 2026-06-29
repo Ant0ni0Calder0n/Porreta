@@ -14,21 +14,40 @@ import {
   getDoc,
   setDoc,
   deleteField,
+  increment,
   limit
 } from 'firebase/firestore';
 import { db } from '../firebaseDb';
+import { app } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Community, NotificationLog, Round } from '../types';
+import { Bet, Community, NotificationLog, Prediction, Round, User } from '../types';
 import CustomAlert from './CustomAlert';
 import CustomConfirm from './CustomConfirm';
 
 const SuperAdminPanel: React.FC = () => {
   const navigate = useNavigate();
   const { isSuperAdmin } = useAuth();
+  const [activeSection, setActiveSection] = useState<'users' | 'communities' | 'notifications' | 'config'>('communities');
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [editUserNick, setEditUserNick] = useState('');
+  const [savingUser, setSavingUser] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [newMemberUserId, setNewMemberUserId] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<'member' | 'admin'>('member');
+  const [savingMember, setSavingMember] = useState(false);
+  const [showCommunityMembers, setShowCommunityMembers] = useState(false);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
+  const [selectedRoundId, setSelectedRoundId] = useState('');
+  const [roundBets, setRoundBets] = useState<Bet[]>([]);
+  const [loadingBets, setLoadingBets] = useState(false);
+  const [selectedBetId, setSelectedBetId] = useState('');
+  const [editBetPredictions, setEditBetPredictions] = useState<Prediction[]>([]);
+  const [savingBet, setSavingBet] = useState(false);
   const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
+  const [selectedNotificationUserId, setSelectedNotificationUserId] = useState('');
   const [loadingNotificationLogs, setLoadingNotificationLogs] = useState(false);
   const [notificationLogsLoaded, setNotificationLogsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,7 +66,7 @@ const SuperAdminPanel: React.FC = () => {
   
   // Estados para alertas y confirmaciones
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; confirmText?: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     // Redirigir si no es super admin
@@ -55,18 +74,280 @@ const SuperAdminPanel: React.FC = () => {
       navigate('/communities');
       return;
     }
+    loadUsers();
     loadCommunities();
     loadGlobalConfig();
   }, [isSuperAdmin, navigate]);
 
+  const selectedUser = users.find(user => user.uid === selectedUserId) || null;
+  const selectedCommunityData = communities.find(community => community.id === selectedCommunity) || null;
+  const selectedRound = rounds.find(round => round.id === selectedRoundId) || null;
+  const selectedBet = roundBets.find(bet => bet.id === selectedBetId) || null;
+  const selectedCommunityMembers = selectedCommunity
+    ? users.filter(user => user.communities?.[selectedCommunity])
+    : [];
+  const selectableNewMembers = selectedCommunity
+    ? users.filter(user => !user.communities?.[selectedCommunity])
+    : [];
+
+  const loadUsers = async () => {
+    try {
+      const q = query(collection(db, 'users'), orderBy('nick', 'asc'));
+      const snapshot = await getDocs(q);
+      const usersData = snapshot.docs.map(userDoc => ({
+        uid: userDoc.id,
+        ...userDoc.data()
+      })) as User[];
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error cargando usuarios:', error);
+      setAlertMessage({ message: 'Error al cargar usuarios', type: 'error' });
+    }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserId(userId);
+    const user = users.find(item => item.uid === userId);
+    setEditUserNick(user?.nick || '');
+  };
+
+  const handleSaveUserNick = async () => {
+    if (!selectedUser || !editUserNick.trim()) return;
+
+    setSavingUser(true);
+    try {
+      await updateDoc(doc(db, 'users', selectedUser.uid), {
+        nick: editUserNick.trim()
+      });
+      setUsers(prev => prev.map(user => user.uid === selectedUser.uid ? { ...user, nick: editUserNick.trim() } : user));
+      setAlertMessage({ message: 'Nick actualizado correctamente', type: 'success' });
+    } catch (error) {
+      console.error('Error actualizando nick:', error);
+      setAlertMessage({ message: 'Error al actualizar nick', type: 'error' });
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleResetUserPassword = async () => {
+    if (!selectedUser) return;
+
+    setConfirmDialog({
+      message: `¿Resetear la contraseña de ${selectedUser.nick}?`,
+      confirmText: 'Resetear',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setResettingPassword(true);
+        try {
+          const { getFunctions, httpsCallable } = await import('firebase/functions');
+          const functions = getFunctions(app);
+          const callable = httpsCallable<{ userId: string }, { password: string }>(functions, 'resetUserPassword');
+          const result = await callable({ userId: selectedUser.uid });
+          setAlertMessage({ message: `Contraseña reseteada. Nueva contraseña: ${result.data.password}`, type: 'success' });
+        } catch (error) {
+          console.error('Error reseteando contraseña:', error);
+          setAlertMessage({ message: 'Error al resetear la contraseña', type: 'error' });
+        } finally {
+          setResettingPassword(false);
+        }
+      }
+    });
+  };
+
+  const updateUserCommunityLocal = (userId: string, communityId: string, role: 'member' | 'admin' | null) => {
+    setUsers(prev => prev.map(user => {
+      if (user.uid !== userId) return user;
+      const nextCommunities = { ...(user.communities || {}) };
+      if (role) {
+        nextCommunities[communityId] = role;
+      } else {
+        delete nextCommunities[communityId];
+      }
+      return { ...user, communities: nextCommunities };
+    }));
+  };
+
+  const updateCommunityMembersCountLocal = (communityId: string, delta: number) => {
+    setCommunities(prev => prev.map(community => community.id === communityId
+      ? { ...community, membersCount: Math.max(0, (community.membersCount || 0) + delta) }
+      : community
+    ));
+  };
+
+  const handleAddMemberToCommunity = async () => {
+    if (!selectedCommunity || !newMemberUserId) return;
+
+    setSavingMember(true);
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', newMemberUserId), {
+        [`communities.${selectedCommunity}`]: newMemberRole
+      });
+      batch.update(doc(db, 'communities', selectedCommunity), {
+        membersCount: increment(1)
+      });
+      await batch.commit();
+
+      updateUserCommunityLocal(newMemberUserId, selectedCommunity, newMemberRole);
+      updateCommunityMembersCountLocal(selectedCommunity, 1);
+      setNewMemberUserId('');
+      setNewMemberRole('member');
+      setAlertMessage({ message: 'Usuario añadido a la comunidad', type: 'success' });
+    } catch (error) {
+      console.error('Error añadiendo miembro:', error);
+      setAlertMessage({ message: 'Error al añadir usuario a la comunidad', type: 'error' });
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
+  const handleChangeMemberRole = async (userId: string, role: 'member' | 'admin') => {
+    if (!selectedCommunity) return;
+
+    setSavingMember(true);
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        [`communities.${selectedCommunity}`]: role
+      });
+      updateUserCommunityLocal(userId, selectedCommunity, role);
+      setAlertMessage({ message: 'Rol actualizado', type: 'success' });
+    } catch (error) {
+      console.error('Error actualizando rol:', error);
+      setAlertMessage({ message: 'Error al actualizar rol', type: 'error' });
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
+  const handleRemoveMemberFromCommunity = async (user: User) => {
+    if (!selectedCommunity) return;
+
+    setConfirmDialog({
+      message: `¿Quitar a ${user.nick} de ${selectedCommunityData?.name || 'esta comunidad'}?`,
+      confirmText: 'Quitar',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setSavingMember(true);
+        try {
+          const batch = writeBatch(db);
+          batch.update(doc(db, 'users', user.uid), {
+            [`communities.${selectedCommunity}`]: deleteField()
+          });
+          batch.update(doc(db, 'communities', selectedCommunity), {
+            membersCount: increment(-1)
+          });
+          await batch.commit();
+
+          updateUserCommunityLocal(user.uid, selectedCommunity, null);
+          updateCommunityMembersCountLocal(selectedCommunity, -1);
+          setAlertMessage({ message: 'Usuario quitado de la comunidad', type: 'success' });
+        } catch (error) {
+          console.error('Error quitando miembro:', error);
+          setAlertMessage({ message: 'Error al quitar usuario de la comunidad', type: 'error' });
+        } finally {
+          setSavingMember(false);
+        }
+      }
+    });
+  };
+
+  const handleSelectRound = (roundId: string) => {
+    setSelectedRoundId(roundId);
+    setRoundBets([]);
+    setSelectedBetId('');
+    setEditBetPredictions([]);
+  };
+
+  const loadBetsForSelectedRound = async () => {
+    if (!selectedRound || !selectedCommunity) return;
+
+    setLoadingBets(true);
+    try {
+      const betsQuery = query(
+        collection(db, 'bets'),
+        where('roundId', '==', selectedRound.id),
+        where('communityId', '==', selectedCommunity)
+      );
+      const snapshot = await getDocs(betsQuery);
+      const betsData = snapshot.docs.map(betDoc => ({ id: betDoc.id, ...betDoc.data() })) as Bet[];
+      betsData.sort((a, b) => a.userNick.localeCompare(b.userNick));
+      setRoundBets(betsData);
+      setSelectedBetId('');
+      setEditBetPredictions([]);
+    } catch (error) {
+      console.error('Error cargando apuestas:', error);
+      setAlertMessage({ message: 'Error al cargar apuestas', type: 'error' });
+    } finally {
+      setLoadingBets(false);
+    }
+  };
+
+  const handleSelectBet = (betId: string) => {
+    setSelectedBetId(betId);
+    const bet = roundBets.find(item => item.id === betId);
+    setEditBetPredictions(bet ? bet.predictions.map(prediction => ({ ...prediction })) : []);
+  };
+
+  const handleSaveBet = async () => {
+    if (!selectedBet) return;
+
+    setSavingBet(true);
+    try {
+      const updatedAt = Timestamp.now();
+      await updateDoc(doc(db, 'bets', selectedBet.id), {
+        predictions: editBetPredictions,
+        updatedAt
+      });
+      setRoundBets(prev => prev.map(bet => bet.id === selectedBet.id ? { ...bet, predictions: editBetPredictions, updatedAt } : bet));
+      setAlertMessage({ message: 'Apuesta actualizada', type: 'success' });
+    } catch (error) {
+      console.error('Error actualizando apuesta:', error);
+      setAlertMessage({ message: 'Error al actualizar apuesta', type: 'error' });
+    } finally {
+      setSavingBet(false);
+    }
+  };
+
+  const handleDeleteBet = async () => {
+    if (!selectedBet) return;
+
+    setConfirmDialog({
+      message: `¿Eliminar la apuesta de ${selectedBet.userNick}? Esta acción no recalcula ganadores ni resultados.`,
+      confirmText: 'Eliminar',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setSavingBet(true);
+        try {
+          await deleteDoc(doc(db, 'bets', selectedBet.id));
+          setRoundBets(prev => prev.filter(bet => bet.id !== selectedBet.id));
+          setSelectedBetId('');
+          setEditBetPredictions([]);
+          setAlertMessage({ message: 'Apuesta eliminada', type: 'success' });
+        } catch (error) {
+          console.error('Error eliminando apuesta:', error);
+          setAlertMessage({ message: 'Error al eliminar apuesta', type: 'error' });
+        } finally {
+          setSavingBet(false);
+        }
+      }
+    });
+  };
+
   const loadNotificationLogs = async () => {
     try {
       setLoadingNotificationLogs(true);
-      const q = query(
-        collection(db, 'notificationLogs'),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-      );
+      const q = selectedNotificationUserId
+        ? query(
+          collection(db, 'notificationLogs'),
+          where('userId', '==', selectedNotificationUserId),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        )
+        : query(
+          collection(db, 'notificationLogs'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
       const snapshot = await getDocs(q);
       const logsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -148,6 +429,11 @@ const SuperAdminPanel: React.FC = () => {
       // Filtrar solo las rondas de la comunidad seleccionada
       const communityRounds = allRounds.filter(r => r.communityId === communityId);
       setRounds(communityRounds);
+      setSelectedRoundId('');
+      setRoundBets([]);
+      setSelectedBetId('');
+      setEditBetPredictions([]);
+      setShowCommunityMembers(false);
       setSelectedCommunity(communityId);
     } catch (error) {
       console.error('Error cargando rondas:', error);
@@ -459,8 +745,27 @@ const SuperAdminPanel: React.FC = () => {
       </div>
 
       <div className="container">
+        <div className="card" style={{ padding: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[
+            { key: 'users' as const, label: 'Usuarios' },
+            { key: 'communities' as const, label: 'Comunidades' },
+            { key: 'notifications' as const, label: 'Notificaciones' },
+            { key: 'config' as const, label: 'Configuración' }
+          ].map(section => (
+            <button
+              key={section.key}
+              type="button"
+              onClick={() => setActiveSection(section.key)}
+              className={activeSection === section.key ? 'button' : 'button button-secondary'}
+              style={{ flex: '1 1 130px', margin: 0, padding: '10px 12px' }}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
 
         {/* Configuración Global */}
+        {activeSection === 'config' && (
         <div className="card" style={{ marginBottom: '24px', backgroundColor: 'rgba(255, 152, 0, 0.1)', borderLeft: '4px solid #ff9800' }}>
           <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-primary)' }}>
             ⚙️ Configuración Global de Acceso
@@ -550,6 +855,7 @@ const SuperAdminPanel: React.FC = () => {
             Úsalos para mantener la app privada y controlar quién puede registrarse o crear comunidades.
           </div>
         </div>
+        )}
 
       {/* Modal de edición */}
       {editingCommunity && (
@@ -737,109 +1043,203 @@ const SuperAdminPanel: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
+
+      {activeSection === 'users' && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Usuarios ({users.length})</h2>
+          <label className="label">Seleccionar usuario</label>
+          <select
+            className="input"
+            value={selectedUserId}
+            onChange={(event) => handleSelectUser(event.target.value)}
+          >
+            <option value="">Elige un usuario</option>
+            {users.map(user => (
+              <option key={user.uid} value={user.uid}>
+                {user.nick} · {user.email}
+              </option>
+            ))}
+          </select>
+
+          {selectedUser && (
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
+                <div><strong>Email:</strong> {selectedUser.email}</div>
+                <div><strong>Creado:</strong> {formatOptionalDate(selectedUser.createdAt)}</div>
+                <div><strong>Último acceso:</strong> {formatOptionalDate(selectedUser.lastSeen)}</div>
+                <div>
+                  <strong>Notificaciones:</strong>{' '}
+                  {(selectedUser.fcmTokens || []).length > 0
+                    ? `Activadas (${(selectedUser.fcmTokens || []).length} dispositivo${(selectedUser.fcmTokens || []).length === 1 ? '' : 's'})`
+                    : 'No activadas'}
+                </div>
+                <div><strong>Superadmin:</strong> {selectedUser.isSuperAdmin ? 'Sí' : 'No'}</div>
+                <div>
+                  <strong>Comunidades:</strong>{' '}
+                  {Object.keys(selectedUser.communities || {}).length === 0
+                    ? 'Ninguna'
+                    : Object.entries(selectedUser.communities || {})
+                      .map(([communityId, role]) => {
+                        const community = communities.find(item => item.id === communityId);
+                        return `${community?.name || communityId} (${role === 'admin' ? 'admin' : 'miembro'})`;
+                      })
+                      .join(', ')}
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Nick</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editUserNick}
+                  onChange={(event) => setEditUserNick(event.target.value)}
+                  disabled={savingUser}
+                />
+                <button
+                  type="button"
+                  className="button"
+                  onClick={handleSaveUserNick}
+                  disabled={savingUser || !editUserNick.trim() || editUserNick.trim() === selectedUser.nick}
+                  style={{ marginTop: 0 }}
+                >
+                  {savingUser ? 'Guardando...' : 'Guardar nick'}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleResetUserPassword}
+                disabled={resettingPassword}
+              >
+                {resettingPassword ? 'Reseteando...' : 'Resetear contraseña'}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Lista de comunidades */}
+      {activeSection === 'communities' && (
+      <>
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Todas las Comunidades ({communities.length})</h2>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-          gap: '15px',
-          marginTop: '15px'
-        }}>
+        <label className="label">Seleccionar comunidad</label>
+        <select
+          className="input"
+          value={selectedCommunity || ''}
+          onChange={(event) => {
+            const communityId = event.target.value;
+            if (!communityId) {
+              setSelectedCommunity(null);
+              setRounds([]);
+              return;
+            }
+            loadRoundsForCommunity(communityId);
+          }}
+        >
+          <option value="">Elige una comunidad</option>
           {communities.map(community => (
-            <div 
-              key={community.id}
-              className="card"
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                padding: '15px',
-                opacity: selectedCommunity === community.id ? 1 : 0.85
-              }}
-            >
-              <h3 style={{ marginTop: 0 }}>
-                {community.name}
-                <span
-                  className={community.isActive === false ? 'badge badge-closed' : 'badge badge-open'}
-                  style={{ marginLeft: '8px' }}
-                >
-                  {community.isActive === false ? 'Desactivada' : 'Activa'}
-                </span>
-              </h3>
-              {community.description && (
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                  {community.description}
-                </p>
-              )}
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                Creada: {formatDate(community.createdAt)}
-              </p>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '15px' }}>
-                Miembros: {community.membersCount}
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => loadRoundsForCommunity(community.id)}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: '#2196F3',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  Ver Rondas
-                </button>
-                <button
-                  onClick={() => handleEditCommunity(community)}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: '#FF9800',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleToggleCommunityActive(community)}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: community.isActive === false ? '#4CAF50' : '#9E9E9E',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  {community.isActive === false ? 'Activar' : 'Desactivar'}
-                </button>
-                <button
-                  onClick={() => handleDeleteCommunity(community)}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: '#f44336',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  Eliminar
-                </button>
-              </div>
-            </div>
+            <option key={community.id} value={community.id}>
+              {community.name} · {community.isActive === false ? 'desactivada' : 'activa'}
+            </option>
           ))}
-        </div>
+        </select>
+
+        {selectedCommunityData && (
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0 }}>{selectedCommunityData.name}</h3>
+              <span className={selectedCommunityData.isActive === false ? 'badge badge-closed' : 'badge badge-open'}>
+                {selectedCommunityData.isActive === false ? 'Desactivada' : 'Activa'}
+              </span>
+            </div>
+            {selectedCommunityData.description && (
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                {selectedCommunityData.description}
+              </p>
+            )}
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+              Creada: {formatDate(selectedCommunityData.createdAt)}
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+              Miembros: {selectedCommunityData.membersCount}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="button button-secondary" onClick={() => handleEditCommunity(selectedCommunityData)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                Editar
+              </button>
+              <button className="button button-secondary" onClick={() => handleToggleCommunityActive(selectedCommunityData)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                {selectedCommunityData.isActive === false ? 'Activar' : 'Desactivar'}
+              </button>
+              <button className="button button-danger" onClick={() => handleDeleteCommunity(selectedCommunityData)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                Eliminar
+              </button>
+            </div>
+
+            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                onClick={() => setShowCommunityMembers(!showCommunityMembers)}
+                style={{ width: '100%', border: 0, background: 'transparent', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+              >
+                <h4 style={{ margin: 0 }}>Miembros ({selectedCommunityMembers.length})</h4>
+                <span aria-hidden="true">{showCommunityMembers ? '▲' : '▼'}</span>
+              </button>
+
+              {showCommunityMembers && (
+                <div style={{ marginTop: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    <select className="input" value={newMemberUserId} onChange={(event) => setNewMemberUserId(event.target.value)} disabled={savingMember} style={{ flex: '1 1 220px', margin: 0 }}>
+                      <option value="">Añadir usuario</option>
+                      {selectableNewMembers.map(user => (
+                        <option key={user.uid} value={user.uid}>{user.nick} · {user.email}</option>
+                      ))}
+                    </select>
+                    <select className="input" value={newMemberRole} onChange={(event) => setNewMemberRole(event.target.value as 'member' | 'admin')} disabled={savingMember} style={{ width: '120px', margin: 0 }}>
+                      <option value="member">Miembro</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button className="button" onClick={handleAddMemberToCommunity} disabled={savingMember || !newMemberUserId} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                      Añadir
+                    </button>
+                  </div>
+
+                  {selectedCommunityMembers.length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>No hay miembros en esta comunidad.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {selectedCommunityMembers
+                        .slice()
+                        .sort((a, b) => a.nick.localeCompare(b.nick))
+                        .map(user => (
+                          <div key={user.uid} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                            <span style={{ flex: '1 1 160px', fontWeight: 600 }}>{user.nick}</span>
+                            <span style={{ flex: '1 1 180px', color: 'var(--text-secondary)', fontSize: '13px' }}>Último acceso: {formatOptionalDate(user.lastSeen)}</span>
+                            <select
+                              className="input"
+                              value={user.communities[selectedCommunityData.id]}
+                              onChange={(event) => handleChangeMemberRole(user.uid, event.target.value as 'member' | 'admin')}
+                              disabled={savingMember}
+                              style={{ width: '120px', margin: 0, padding: '6px 8px' }}
+                            >
+                              <option value="member">Miembro</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                            <button className="button button-danger" onClick={() => handleRemoveMemberFromCommunity(user)} disabled={savingMember} style={{ width: 'auto', padding: '6px 10px', margin: 0 }}>
+                              Quitar
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Lista de rondas de la comunidad seleccionada */}
@@ -849,101 +1249,149 @@ const SuperAdminPanel: React.FC = () => {
           {rounds.length === 0 ? (
             <p style={{ color: '#999' }}>No hay rondas en esta comunidad</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
-              {rounds.map(round => (
-                <div 
-                  key={round.id}
-                  className="card"
-                  style={{
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    padding: '15px'
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{round.name}</h3>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
-                        <strong>Estado:</strong> {
-                          round.status === 'open' ? '🟢 Abierta' :
-                          round.status === 'closed' ? '🔴 Cerrada' :
-                          '✅ Resultados Publicados'
-                        }
-                      </p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
-                        <strong>Fecha límite:</strong> {formatDate(round.deadline)}
-                      </p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
-                        <strong>Creada:</strong> {formatDate(round.createdAt)}
-                      </p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                        <strong>Partidos:</strong> {round.matches.length}
-                      </p>
-                      {round.status === 'results_posted' && round.winnerNick && (
-                        <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#4CAF50' }}>
-                          🏆 Ganador: {round.winnerNick}
-                        </p>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => navigate(`/community/${round.communityId}/round/${round.id}/results`)}
-                        style={{
-                          padding: '8px 12px',
-                          backgroundColor: '#4CAF50',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          whiteSpace: 'nowrap',
-                          flex: '1 1 auto'
-                        }}
-                      >
-                        Editar Resultados
-                      </button>
-                      <button
-                        onClick={() => handleEditRound(round)}
-                        style={{
-                          padding: '8px 12px',
-                          backgroundColor: '#2196F3',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          whiteSpace: 'nowrap',
-                          flex: '1 1 auto'
-                        }}
-                      >
-                        Editar Ronda
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRound(round)}
-                        style={{
-                          padding: '8px 12px',
-                          backgroundColor: '#f44336',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          whiteSpace: 'nowrap',
-                          flex: '1 1 auto'
-                        }}
-                      >
-                        Eliminar Ronda
+            <>
+              <label className="label">Seleccionar ronda</label>
+              <select className="input" value={selectedRoundId} onChange={(event) => handleSelectRound(event.target.value)}>
+                <option value="">Elige una ronda</option>
+                {rounds.map(round => (
+                  <option key={round.id} value={round.id}>
+                    {round.name} · {round.status === 'results_posted' ? 'resultados' : round.status === 'closed' ? 'cerrada' : 'abierta'}
+                  </option>
+                ))}
+              </select>
+
+              {selectedRound && (
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginTop: '12px' }}>
+                  <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{selectedRound.name}</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                    <strong>Estado:</strong> {selectedRound.status === 'open' ? 'Abierta' : selectedRound.status === 'closed' ? 'Cerrada' : 'Resultados publicados'}
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                    <strong>Fecha límite:</strong> {formatDate(selectedRound.deadline)}
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                    <strong>Creada:</strong> {formatDate(selectedRound.createdAt)}
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                    <strong>Partidos:</strong> {selectedRound.matches.length}
+                  </p>
+                  {selectedRound.status === 'results_posted' && selectedRound.winnerNick && (
+                    <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#4CAF50' }}>
+                      Ganador: {selectedRound.winnerNick}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button className="button" onClick={() => navigate(`/community/${selectedRound.communityId}/round/${selectedRound.id}/results`)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                      Editar resultados
+                    </button>
+                    <button className="button button-secondary" onClick={() => handleEditRound(selectedRound)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                      Editar ronda
+                    </button>
+                    <button className="button button-danger" onClick={() => handleDeleteRound(selectedRound)} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                      Eliminar ronda
+                    </button>
+                  </div>
+
+                  <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      <h4 style={{ margin: 0 }}>Apuestas</h4>
+                      <button className="button button-secondary" onClick={loadBetsForSelectedRound} disabled={loadingBets} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                        {loadingBets ? 'Cargando...' : 'Cargar apuestas'}
                       </button>
                     </div>
+
+                    {roundBets.length > 0 && (
+                      <>
+                        <select className="input" value={selectedBetId} onChange={(event) => handleSelectBet(event.target.value)}>
+                          <option value="">Elige una apuesta</option>
+                          {roundBets.map(bet => (
+                            <option key={bet.id} value={bet.id}>{bet.userNick} · {bet.id}</option>
+                          ))}
+                        </select>
+
+                        {selectedBet && (
+                          <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
+                            <p style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: '13px' }}>
+                              Usuario: <strong>{selectedBet.userNick}</strong>. Editar esto no recalcula ganadores ni resultados.
+                            </p>
+                            {selectedRound.matches.map((match, index) => {
+                              const prediction = editBetPredictions[index];
+                              return (
+                                <div key={index} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: index < selectedRound.matches.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                                  <strong style={{ display: 'block', marginBottom: '6px' }}>{match.homeTeam} vs {match.awayTeam}</strong>
+                                  {match.type === 'exact' ? (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        className="input"
+                                        value={prediction?.type === 'exact' && prediction.homeGoals !== undefined ? prediction.homeGoals : ''}
+                                        onChange={(event) => {
+                                          const next = [...editBetPredictions];
+                                          next[index] = { type: 'exact', homeGoals: event.target.value === '' ? undefined : Number(event.target.value), awayGoals: prediction?.type === 'exact' ? prediction.awayGoals : undefined };
+                                          setEditBetPredictions(next);
+                                        }}
+                                        disabled={savingBet}
+                                        style={{ margin: 0 }}
+                                      />
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        className="input"
+                                        value={prediction?.type === 'exact' && prediction.awayGoals !== undefined ? prediction.awayGoals : ''}
+                                        onChange={(event) => {
+                                          const next = [...editBetPredictions];
+                                          next[index] = { type: 'exact', homeGoals: prediction?.type === 'exact' ? prediction.homeGoals : undefined, awayGoals: event.target.value === '' ? undefined : Number(event.target.value) };
+                                          setEditBetPredictions(next);
+                                        }}
+                                        disabled={savingBet}
+                                        style={{ margin: 0 }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <select
+                                      className="input"
+                                      value={prediction?.type === '1X2' ? prediction.pick || '1' : '1'}
+                                      onChange={(event) => {
+                                        const next = [...editBetPredictions];
+                                        next[index] = { type: '1X2', pick: event.target.value as '1' | 'X' | '2' };
+                                        setEditBetPredictions(next);
+                                      }}
+                                      disabled={savingBet}
+                                      style={{ margin: 0 }}
+                                    >
+                                      <option value="1">Local</option>
+                                      <option value="X">Empate</option>
+                                      <option value="2">Visitante</option>
+                                    </select>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <button className="button" onClick={handleSaveBet} disabled={savingBet} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                                {savingBet ? 'Guardando...' : 'Guardar apuesta'}
+                              </button>
+                              <button className="button button-danger" onClick={handleDeleteBet} disabled={savingBet} style={{ width: 'auto', padding: '8px 12px', margin: 0 }}>
+                                Eliminar apuesta
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Logs de notificaciones */}
+      {activeSection === 'notifications' && (
       <div className="card" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
@@ -952,6 +1400,23 @@ const SuperAdminPanel: React.FC = () => {
               Últimos 50 intentos de envío. No se cargan hasta que pulses el botón.
             </p>
           </div>
+          <select
+            className="input"
+            value={selectedNotificationUserId}
+            onChange={(event) => {
+              setSelectedNotificationUserId(event.target.value);
+              setNotificationLogsLoaded(false);
+              setNotificationLogs([]);
+            }}
+            style={{ width: 'auto', minWidth: '220px', margin: 0 }}
+          >
+            <option value="">Todos los usuarios</option>
+            {users.map(user => (
+              <option key={user.uid} value={user.uid}>
+                {user.nick} · {user.email}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             className="button button-secondary"
@@ -1004,6 +1469,7 @@ const SuperAdminPanel: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Alerta personalizada */}
       {alertMessage && (
@@ -1018,7 +1484,7 @@ const SuperAdminPanel: React.FC = () => {
       {confirmDialog && (
         <CustomConfirm
           message={confirmDialog.message}
-          confirmText="Eliminar"
+          confirmText={confirmDialog.confirmText || 'Eliminar'}
           cancelText="Cancelar"
           onConfirm={confirmDialog.onConfirm}
           onCancel={() => setConfirmDialog(null)}

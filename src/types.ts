@@ -18,6 +18,7 @@ export interface User {
   seenResults?: Record<string, number>; // { roundId: timestamp } - Resultados de rondas ya vistos
   lastSeen?: Timestamp; // Última vez que el usuario se conectó
   notificationSettings?: NotificationSettings;
+  fcmTokens?: string[];
 }
 
 export interface Community {
@@ -33,6 +34,7 @@ export interface Community {
   boteAmount?: number;
   botePerRound?: number;
   rankingAdjustments?: Record<string, number>;
+  rankingPrizes?: Record<string, number>;
 }
 
 export type MatchType = 'exact' | '1X2';
