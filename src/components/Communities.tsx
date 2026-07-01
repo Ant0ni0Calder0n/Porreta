@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +17,7 @@ const Communities: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [communityCreationDisabled, setCommunityCreationDisabled] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
@@ -25,6 +26,19 @@ const Communities: React.FC = () => {
     loadCommunities();
     checkCommunityCreationStatus();
   }, [userData]);
+
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showSettingsMenu]);
 
   const checkCommunityCreationStatus = async () => {
     try {
@@ -101,7 +115,7 @@ const Communities: React.FC = () => {
     <div>
       <div className="header">
         <h1>Mis Comunidades</h1>
-        <div style={{ position: 'relative' }}>
+        <div ref={settingsMenuRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowSettingsMenu(!showSettingsMenu)}
             style={headerButtonStyle}
