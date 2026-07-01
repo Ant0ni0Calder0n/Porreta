@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/index.esm-D0k3cxrO.js","assets/index-Bw3f8aXM.js","assets/index-tw1pyZsu.css"])))=>i.map(i=>d[i]);
+import{_ as c,d as l}from"./index-Bw3f8aXM.js";async function u(t){const{getFunctions:a,httpsCallable:s}=await c(async()=>{const{getFunctions:o,httpsCallable:e}=await import("./index.esm-D0k3cxrO.js");return{getFunctions:o,httpsCallable:e}},__vite__mapDeps([0,1,2])),n=a(l);return(await s(n,"fetchSportsDb")(t)).data}export{u as f};
